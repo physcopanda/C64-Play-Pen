@@ -1,0 +1,37 @@
+Modules list:
+-------------
+main.o:
+    CODE              Offs = 000000   Size = 000491
+    CHRMAP            Offs = 000000   Size = 001000
+    MUSIC             Offs = 000000   Size = 001162
+    INCLUDES          Offs = 000000   Size = 0037B4
+C:\Program Files\cc65-snapshot\lib/c64.lib(zeropage.o):
+    ZEROPAGE          Offs = 000000   Size = 00001A
+
+
+Segment list:
+-------------
+Name                  Start   End     Size
+--------------------------------------------
+ZEROPAGE              000000  000019  00001A
+CODE                  000800  000C90  000491
+CHRMAP                004000  004FFF  001000
+MUSIC                 006000  007161  001162
+INCLUDES              009000  00C7B3  0037B4
+
+
+Exports list:
+-------------
+ptr1                      000008 RLZ    ptr2                      00000A RLZ    
+tmp1                      000010 RLZ    
+
+
+Imports list:
+-------------
+ptr1 (zeropage.o):
+    main.o                    main.s(9)
+ptr2 (zeropage.o):
+    main.o                    main.s(9)
+tmp1 (zeropage.o):
+    main.o                    main.s(9)
+

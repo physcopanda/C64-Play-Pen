@@ -1,0 +1,196 @@
+<?xml version="1.0" ?>
+<project name="ArcticStar" default="main">
+	<taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+	<property environment="env" />
+	<property name="name" value="$name" />
+	<property name="memmode" value="36" />
+	<property name="ldaddress" value="0800" />
+	<property name="exaddress" value="0800" />
+	<property name="version" value="0" />
+	<condition property="Lin.Not.Win">
+		<and>
+			<os family="unix"/>
+			<not>
+				<os family="windows"/>
+			</not>
+		</and>
+	</condition>
+	<condition property="searchpath" value=".;/bin;/usr/bin;/usr/local/bin" else="${env.Path}">
+		<istrue value="${Lin.Not.Win}" />
+	</condition>
+	<condition property="php" value="php" else="php.exe">
+		<istrue value="${Lin.Not.Win}" />
+	</condition>
+	<condition property="cc" value="ca65" else="ca65.exe">
+		<istrue value="${Lin.Not.Win}" />
+	</condition>
+	<condition property="ll" value="cl65" else="cl65.exe">
+		<istrue value="${Lin.Not.Win}" />
+	</condition>
+	<condition property="pack" value="pucrunch" else="pucrunch.exe">
+		<istrue value="${Lin.Not.Win}" />
+	</condition>
+	<condition property="git" value="git" else="git.cmd">
+		<istrue value="${Lin.Not.Win}" />
+	</condition>
+	<condition property="c1541" value="c1541" else="c1541.exe">
+		<istrue value="${Lin.Not.Win}" />
+	</condition>
+	<condition property="compiler.available">
+		<available filepath="${searchpath}" file="${cc}" />
+	</condition>
+	<condition property="linker.available">
+		<available filepath="${searchpath}" file="${ll}" />
+	</condition>
+	<condition property="cruncher.available">
+		<available filepath="${searchpath}" file="${pack}" />
+	</condition>
+	<condition property="php.available">
+		<available filepath="${searchpath}" file="${php}" />
+	</condition>
+	<condition property="git.available">
+		<available filepath="${searchpath}" file="${git}" />
+	</condition>
+	<condition property="c1541.available">
+		<available filepath="${searchpath}" file="${c1541}" />
+	</condition>
+	<condition property="d64.exists">
+		<available filepath="dist" file="$name${version}.d64" />
+	</condition>
+	<condition property="d64-ntsc.exists">
+		<available filepath="dist" file="$name${version}-ntsc.d64" />
+	</condition>
+	<condition property="runnable">
+		<available filepath="dist" file="main${version}.prg" />
+	</condition>
+	<property name="cflags.debug" value="-DDEBUG=1" />
+	<target name="main.debug" depends="compile.debug, link, compress, copy, statistics" description="compile main with debug symbol">
+		<echo>Built debug version of main.prg...</echo>
+	</target>
+	<target name="main-ntsc.debug" depends="compile-ntsc.debug, link, compress, copy-ntsc, statistics" description="compile main with debug symbol">
+		<echo>Built debug version of main.prg...</echo>
+	</target>
+	<target name="main" depends="compile, link, compress, copy, statistics" description="compile main">
+		<echo>Built main.prg...</echo>
+	</target>
+	<target name="main-ntsc" depends="compile-ntsc, link, compress, copy-ntsc, statistics" description="compile main">
+		<echo>Built main.prg...</echo>
+	</target>
+	<target name="clean" description="cleanup">
+		<delete dir="build" />
+		<delete dir="dist" />
+	</target>
+	<target name="compile">
+		<fail message="could not find compiler ${cc}" unless="compiler.available" />
+		<echo>Compiling for PAL...</echo>
+		<mkdir dir="build" />
+		<exec dir="." executable="${cc}" failonerror="true" failifexecutionfails="true">
+			<arg line="-U -o build/main.o main.s" />
+		</exec>
+	</target>
+	<target name="compile.debug">
+		<fail message="could not find compiler ${cc}" unless="compiler.available" />
+		<echo>Compiling for PAL with debug symbols...</echo>
+		<mkdir dir="build" />
+		<exec dir="." executable="${cc}" failonerror="true" failifexecutionfails="true">
+			<arg line="--debug-info -U -o build/main.o main.s" />
+			<arg value="${cflags.debug}" />
+		</exec>
+	</target>
+	<target name="compile-ntsc">
+		<fail message="could not find compiler ${cc}" unless="compiler.available" />
+		<echo>Compiling for NTSC ...</echo>
+		<mkdir dir="build" />
+		<exec dir="." executable="${cc}" failonerror="true" failifexecutionfails="true">
+			<arg line="-DNTSC=1 -U -o build/main.o main.s" />
+		</exec>
+	</target>
+	<target name="compile-ntsc.debug">
+		<fail message="could not find compiler ${cc}" unless="compiler.available" />
+		<echo>Compiling for NTSC with debug symbols...</echo>
+		<mkdir dir="build" />
+		<exec dir="." executable="${cc}" failonerror="true" failifexecutionfails="true">
+			<arg line="--debug-info -DNTSC=1 -U -o build/main.o main.s" />
+			<arg value="${cflags.debug}" />
+		</exec>
+	</target>
+	<target name="link">
+		<fail message="could not find linker ${ll}" unless="linker.available" />
+		<mkdir dir="dist" />
+		<echo>Linking...</echo>
+		<exec dir="." executable="${ll}" failonerror="true" failifexecutionfails="true">
+			<arg line="-O -v -Ln dist/main.l --mapfile dist/main.map -C link -o build/main build/main.o" />
+		</exec>
+	</target>
+	<target name="compress">
+		<fail message="could not find cruncher ${pack}" unless="cruncher.available" />
+		<echo>Crunching...</echo>
+		<exec dir="." executable="${pack}" failonerror="true" failifexecutionfails="true">
+			<arg line="-d -g 0x${memmode} -l 0x${ldaddress} -x 0x${exaddress} build/main dist/main${version}.prg" />
+		</exec>
+	</target>
+	<target name="copy" depends="disk">
+		<fail message="could not find c1541 ${c1541}" unless="c1541.available" />
+		<echo>Copy PRG</echo>
+		<exec dir="." executable="${c1541}" failonerror="true" failifexecutionfails="true">
+			<arg line="-attach dist/$name${version}.d64 -delete main${version}.prg -write dist/main${version}.prg main${version}.prg" />
+		</exec>
+	</target>
+	<target name="copy-ntsc" depends="disk-ntsc">
+		<fail message="could not find c1541 ${c1541}" unless="c1541.available" />
+		<echo>Copy PRG</echo>
+		<exec dir="." executable="${c1541}" failonerror="true" failifexecutionfails="true">
+			<arg line="-attach dist/$name${version}-ntsc.d64 -delete main${version}.prg -write dist/main${version}.prg main${version}.prg" />
+		</exec>
+	</target>
+	<target name="disk" unless="d64.exists">
+		<fail message="could not find c1541 ${c1541}" unless="c1541.available" />
+		<echo>Creating d64</echo>
+		<exec dir="." executable="${c1541}" failonerror="true" failifexecutionfails="true">
+			<arg line="-format diskname,id d64 dist/$name${version}.d64" />
+		</exec>	
+	</target>
+	<target name="disk-ntsc" unless="d64-ntsc.exists">
+		<fail message="could not find c1541 ${c1541}" unless="c1541.available" />
+		<echo>Creating d64</echo>
+		<exec dir="." executable="${c1541}" failonerror="true" failifexecutionfails="true">
+			<arg line="-format diskname,id d64 dist/$name${version}-ntsc.d64" />
+		</exec>	
+	</target>
+	<target name="run" description="run game">
+		<fail message="could not find dist/$name${version}.prg" unless="runnable" />
+		<exec dir="." searchpath="${searchpath}" executable="x64" spawn="true">
+			<arg line="-moncommand monitor.sys -pal -cartrr d:\c64\carts\the_final_replay\tfr08.bin dist/$name${version}.d64" />
+		</exec>
+	</target>
+	<target name="run-ntsc" description="run game">
+		<fail message="could not find dist/$name${version}.prg" unless="runnable" />
+		<exec dir="." searchpath="${searchpath}" executable="x64" spawn="true">
+			<arg line="-moncommand monitor.sys -ntsc -cartrr d:\c64\carts\the_final_replay\tfr08.bin dist/$name${version}-ntsc.d64" />
+		</exec>
+	</target>
+		
+	<target name="statistics">
+		<fail message="could not find ${php}" unless="php.available" />
+		<echo>Analysing...</echo>
+		<exec dir="." executable="${php}">
+			<arg line="-f working/tools/memmap-to-png.php dist/main.map" />
+		</exec>
+	</target>
+	<target name="git.findbranch">
+		<fail message="could not find ${git}" unless="git.available" />
+		<echo>Resolving branch</echo>
+		<exec dir="." executable="${git}" outputproperty="git.branches">
+			<arg line="branch" />
+		</exec>
+		<propertyregex property="git.branch" input="${git.branches}" regexp="\* (.*)" select="\1" />
+		<fail message="could not locate branch!" unless="git.branch" />
+	</target>
+	<target name="git.commit">
+		<fail message="could not find ${git}" unless="git.available" />
+		<echo>Commiting current files</echo>
+		<exec dir="." executable="${git}">
+			<arg line="commit -a -m &quot;Automated commit made by Ant&quot;" />
+		</exec>
+	</target>
+</project>

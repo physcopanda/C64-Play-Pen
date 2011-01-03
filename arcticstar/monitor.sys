@@ -1,0 +1,4 @@
+ll "dist/main.l"
+;bl "working/data" 0 .page
+;bl "working/world_data" 0 $800
+
