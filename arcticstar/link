@@ -7,8 +7,8 @@ SEGMENTS {
 	ZEROPAGE:	load = ZP, type = zp;
 	CODE:   	load = RAM, type = rw, start = $800;
 	CHRMAP:		load = RAM, type = ro, start = $4000;
-	SCREEN:		load = RAM, type = rw, start = $5000;
-	SPRITES:	load = RAM, type = ro, start = $5800;
-	MUSIC:		load = RAM, type = rw, start = $6000;
+	SCREEN:		load = RAM, type = rw, start = $6000;
+	SPRITES:	load = RAM, type = ro, start = $6800;
+	MUSIC:		load = RAM, type = rw, start = $7000;
 	INCLUDES:	load = RAM, type = rw, start = $9000;
 }
