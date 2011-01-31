@@ -64,16 +64,16 @@
 		<available filepath="dist" file="main${version}.prg" />
 	</condition>
 	<property name="cflags.debug" value="-DDEBUG=1" />
-	<target name="main.debug" depends="compile.debug, link, compress, copy, statistics" description="compile main with debug symbol">
+	<target name="main.debug" depends="php, compile.debug, link, compress, copy, statistics" description="compile main with debug symbol">
 		<echo>Built debug version of main.prg...</echo>
 	</target>
-	<target name="main-ntsc.debug" depends="compile-ntsc.debug, link, compress, copy-ntsc, statistics" description="compile main with debug symbol">
+	<target name="main-ntsc.debug" depends="php, compile-ntsc.debug, link, compress, copy-ntsc, statistics" description="compile main with debug symbol">
 		<echo>Built debug version of main.prg...</echo>
 	</target>
-	<target name="main" depends="compile, link, compress, copy, statistics" description="compile main">
+	<target name="main" depends="php, compile, link, compress, copy, statistics" description="compile main">
 		<echo>Built main.prg...</echo>
 	</target>
-	<target name="main-ntsc" depends="compile-ntsc, link, compress, copy-ntsc, statistics" description="compile main">
+	<target name="main-ntsc" depends="php, compile-ntsc, link, compress, copy-ntsc, statistics" description="compile main">
 		<echo>Built main.prg...</echo>
 	</target>
 	<target name="clean" description="cleanup">
@@ -177,6 +177,15 @@
 			<arg line="-f working/tools/memmap-to-png.php dist/main.map" />
 		</exec>
 	</target>
+	
+	<target name="php" description="build php srcs">
+		<fail message="could not find ${php}" unless="php.available" />
+		<echo>Building Speedcode...</echo>
+		<exec dir="." executable="${php}">
+			<arg line="-f working/tools/speedcode.php" />
+		</exec>
+	</target>
+	
 	<target name="git.findbranch">
 		<fail message="could not find ${git}" unless="git.available" />
 		<echo>Resolving branch</echo>

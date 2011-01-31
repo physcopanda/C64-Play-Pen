@@ -2,7 +2,7 @@ MEMORY USAGE KEY:
 -------------
 ZEROPAGE       :	RED
 CODE           :	CYAN
-CHRMAP         :	PURPLE
-MUSIC          :	DGREEN
+BUFFER         :	PURPLE
+CHRMAP         :	DGREEN
 INCLUDES       :	DBLUE
 -------------

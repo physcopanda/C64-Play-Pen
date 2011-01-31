@@ -29,7 +29,7 @@ start:
 	ora #VIC_LAYOUT
 	sta CIA2
 	; setup vic charset and screen
-	jsr chrset1
+	jsr chrset3
 	
 	jsr $FF8A	;Restore Vectors
 	
@@ -44,6 +44,8 @@ start:
 	; set up variables
 	
 	jsr map_chrs
+	
+	jsr init_mothership
 	
 	; get level number, and use it to index the level colours
 	lda level
@@ -92,7 +94,7 @@ start:
 			bne :--
 			jsr rollPtrs
 			inx
-			cpx #(23-FIELD_SIZE_Y)
+			cpx #(22-FIELD_SIZE_Y)
 			bne :---
 	ldy #0
 	:
@@ -108,7 +110,7 @@ start:
 	; roll pointers on a row
 	jsr rollPtrs
 	
-	lda #96
+	lda #(FIELD_SIZE_Y*8)
 	sta tmp1
 	
 	ldx #0
@@ -132,16 +134,80 @@ start:
 	inx
 	cpx #6
 	beq :+
-	cpx #FIELD_SIZE_Y-1
+	cpx #FIELD_SIZE_Y
 	beq :++
 	jmp :--
 	:
-	lda #96
+	lda #(FIELD_SIZE_Y*8)
 	sta tmp1
 	jmp :---
 	:
+	
+	; draw a mothership!
+	lda #96
+	ldx #0
+	:
+	clc
+	sta PAGE_MEM1 + MOTHERSHIP_LOC,x
+	pha
+	lda mothership_colour
+	sta COLOUR_RAM + MOTHERSHIP_LOC,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 40,x
+	pha
+	lda mothership_colour
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 40,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 80,x
+	pha
+	lda mothership_colour
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 80,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 120,x
+	pha
+	lda mothership_colour
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 120,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 160,x
+	pha
+	lda mothership_colour
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 160,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 200,x
+	pha
+	lda mothership_colour
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 200,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 240,x
+	pha
+	lda mothership_colour
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 240,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 280,x
+	pha
+	lda mothership_colour
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 280,x
+	pla
+	sec
+	sbc #55
+	inx
+	cpx #8
+	bne :-
+	; init the buffer
+	lda #0
+	sta buffer_position
+	
+	
+	
 	; irq time
-	init_raster raster1, #RASTER1_POS
+	init_raster raster0, #RASTER0_POS
 	
 _mainloop:
 	lda #0 
@@ -153,6 +219,53 @@ _mainloop:
 	jsr shift_read
 	
 	jsr map_chrs
+	
+	lda mothership_frame
+	
+	cmp #0
+	bne :+
+	ldx #0
+	jsr mothership_frame_1
+	jmp end_mframe
+	:
+	cmp #1
+	bne :+
+	ldx #64
+	jsr mothership_frame_1
+	jmp end_mframe
+	:
+	cmp #2
+	bne :+
+	ldx #128
+	jsr mothership_frame_1
+	jmp end_mframe
+	:
+	cmp #3
+	bne :+
+	ldx #0
+	jsr mothership_frame_2
+	jmp end_mframe
+	:
+	cmp #4
+	bne :+
+	ldx #64
+	jsr mothership_frame_2
+	jmp end_mframe
+	:
+	ldx #128
+	jsr mothership_frame_2
+end_mframe:
+
+	;inx
+	;stx mothership_pos
+	inc mothership_frame
+	lda mothership_frame
+	cmp #6
+	bcc :+
+	lda #0
+	sta mothership_frame
+	:
+	
 	jsr game_loop
 	jmp _mainloop
 
@@ -200,11 +313,11 @@ current_col:
 	
 ; raster code
 
-raster1:	; banner init raster
-  	inc VICIRQ ; acknowledge irq
-	jsr game_raster_loop
+raster0:	; sky raster
+	inc VICIRQ ; acknowledge irq
+	jsr game_raster_loop ; does nothing yet!
 	.ifdef DEBUG
-		lda #LGREEN
+		lda #CYAN
 		sta EXTCOL
 	.endif
 	
@@ -213,9 +326,27 @@ raster1:	; banner init raster
 	lda #BLACK
   	sta BGRCOL
 	
-	jsr chrset1
+	jsr chrset3
 	
-	jsr MUSIC_PLAY		;play sid/soundfx
+	;jsr MUSIC_PLAY		;play sid/soundfx
+	
+	init_raster raster1, #RASTER1_POS
+	; use this for solar flashes - to come later!
+	;init_raster raster_start_solarflash, start_solarflash
+	
+	jmp $ea31		;call next interrupt
+
+raster1:	; init raster
+  	inc VICIRQ ; acknowledge irq
+	.ifdef DEBUG
+		lda #LGREEN
+		sta EXTCOL
+	.endif
+	
+	lda #BLACK
+  	sta BGRCOL
+	
+	jsr chrset1
 	
 	init_raster raster2, #RASTER2_POS
 	; use this for solar flashes - to come later!
@@ -255,7 +386,7 @@ raster3:	; banner init raster
 		sta EXTCOL
 	.endif
 	jsr chrset2
-	init_raster raster1, #RASTER1_POS
+	init_raster raster0, #RASTER0_POS
 	jmp $ea31		;call next interrupt	
 	
 chrset1:
@@ -268,6 +399,13 @@ chrset1:
 chrset2:
 	; setup vic charset2
 	lda #VIC_CHARSET2
+	ora #VIC_PAGE1
+	sta VMCSB
+	rts
+	
+chrset3:
+	; setup vic charset3
+	lda #VIC_CHARSET3
 	ora #VIC_PAGE1
 	sta VMCSB
 	rts
@@ -295,22 +433,135 @@ shift_read:
 	sta src_row_LO,x
 	:
 	inx
-	cpx #96
+	cpx #(FIELD_SIZE_Y*8)
 	beq :+
 	jmp :---
 	:
 	rts
 	
-;map_chrs_unrolled:
+map_chrs_unrolled:
 	;.include "inc/speedcode.s"	
-	;rts
+	rts
+
+init_mothership:
+	; copy frame 1
+	lda #<(MOTHERSHIP+8*0)
+	sta addr_from
+	lda #>(MOTHERSHIP+8*0)
+    sta addr_from+1
+    lda #64
+    sta addr_to
+    lda #>BUFFER
+    sta addr_to+1
+    jsr init_loop    
+
+    ; copy frame 2
+	lda #<(MOTHERSHIP+8*1)
+	sta addr_from
+	lda #>(MOTHERSHIP+8*1)
+    sta addr_from+1
+    lda #128
+    sta addr_to
+    lda #>BUFFER
+    sta addr_to+1
+    jsr init_loop
+    
+    ; copy frame 3
+	lda #<(MOTHERSHIP+8*2)
+	sta addr_from
+	lda #>(MOTHERSHIP+8*2)
+    sta addr_from+1
+    lda #192
+    sta addr_to
+    lda #>BUFFER
+    sta addr_to+1
+    jsr init_loop
+    
+    ; copy frame 4
+	lda #<(MOTHERSHIP+8*3)
+	sta addr_from
+	lda #>(MOTHERSHIP+8*3)
+    sta addr_from+1
+    lda #64
+    sta addr_to
+    lda #>(BUFFER+2048)
+    sta addr_to+1
+    jsr init_loop
+    
+    ; copy frame 5
+	lda #<(MOTHERSHIP+8*4)
+	sta addr_from
+	lda #>(MOTHERSHIP+8*4)
+    sta addr_from+1
+    lda #128
+    sta addr_to
+    lda #>(BUFFER+2048)
+    sta addr_to+1
+    jsr init_loop
+    
+    ; copy frame 6
+	lda #<(MOTHERSHIP+8*5)
+	sta addr_from
+	lda #>(MOTHERSHIP+8*5)
+    sta addr_from+1
+    lda #192
+    sta addr_to
+    lda #>(BUFFER+2048)
+    sta addr_to+1
+    jsr init_loop
+    
+    ; do the first frames speedcode!
+    ldx #128
+	jsr mothership_frame_2
+    
+    rts
+    
+init_loop:
+	lda #64 ; number of lines of bitmap to copy
+	sta tmp1
+:
+	; setup vars to copy 1 row of 8 bytes
+	ldy #0
+    ldx #8
+:
+	; copy 8 byte row horz to vert in buffer
+    lda (addr_from),y
+    sta (addr_to),y
+    inc addr_from
+    bne :+
+    inc addr_from+1
+:
+    inc addr_to+1
+    dex
+    bne :--
+ 	
+    ; end of copy?
+    dec tmp1
+    beq :++
+    
+    ; setup next row
+    clc
+    lda addr_from
+    adc #40 ;(384 pixels wide so 40 + 8 bytes already rolled)
+    sta addr_from
+    bcc :+
+    inc addr_from+1
+:
+	sec
+    lda addr_to+1
+    sbc #8
+    sta addr_to+1
+    inc addr_to
+    jmp :----
+:
+    rts
+    
+roll_buffer:
+
+	rts
+
 	
 map_chrs:
-	; quick colour change 
-	lda #WHITE
-	sta EXTCOL
-
-
 	; now for each row, read and write bytes
 	; init code
 	ldx #95
@@ -430,6 +681,10 @@ rnd:
 
 vblank:
 	.byte 0
+buffer_position:
+    .byte 0
+bitmap_position:
+    .word 0
 
 .include "inc/tables.s"
 
@@ -496,22 +751,38 @@ landscape_cols:
 	.byte LBLUE
 level_colours:
 	.byte DBLUE, LBLUE, RED, LRED, DGREEN, LGREEN, DGREY, LGREY, BROWN, ORANGE
+mothership_colour:
+	.byte LRED
+mothership_pos:
+	.byte 0
+mothership_frame:
+	.byte 0
+.include "inc/speedcode.s"
+
+.segment "BUFFER"
+	BUFFER:
+    .res 16*256,0
 	
 .segment "CHRMAP"
+	CHR_LANDSCAPE:
 	.incbin "inc/tile.arcticstar"
 	.incbin "inc/tile.arcticstar"
-	.incbin "inc/tile.arcticstar"
+	CHR_MOTHERSHIP:
 	.incbin "inc/tile.arcticstar"
 .segment "SCREEN"
 	
 .segment "SPRITES"
 	;.incbin "inc/sprites.spr"
 	
-.segment "MUSIC"
-;.incbin "inc/silent night.prg",2
-.incbin "inc/hyperspace.prg",2
+;.segment "MUSIC"
+	;.incbin "inc/silent night.prg",2
+	;.incbin "inc/hyperspace.prg",2
 
 .segment "INCLUDES"
-;.incbin "inc/spirals2.wbmp",6
-.incbin "inc/rings.wbmp",6
-
+	LANDSCAPE:
+	;.incbin "inc/spirals2.wbmp",6
+	.incbin "inc/rings.wbmp",6
+	EOF_LANDSCAPE:
+	MOTHERSHIP:
+	.incbin "inc/mothership.wbmp",5
+	EOF_MOTHERSHIP:

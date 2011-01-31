@@ -6,9 +6,10 @@ MEMORY {
 SEGMENTS {
 	ZEROPAGE:	load = ZP, type = zp;
 	CODE:   	load = RAM, type = rw, start = $800;
+	BUFFER:		load = RAM, type = rw, start = $3000;
 	CHRMAP:		load = RAM, type = ro, start = $4000;
 	SCREEN:		load = RAM, type = rw, start = $6000;
 	SPRITES:	load = RAM, type = ro, start = $6800;
-	MUSIC:		load = RAM, type = rw, start = $7000;
+	#MUSIC:		load = RAM, type = rw, start = $7000;
 	INCLUDES:	load = RAM, type = rw, start = $9000;
 }

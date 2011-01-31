@@ -1,10 +1,10 @@
 Modules list:
 -------------
 main.o:
-    CODE              Offs = 000000   Size = 000553
-    CHRMAP            Offs = 000000   Size = 002000
-    MUSIC             Offs = 000000   Size = 001162
-    INCLUDES          Offs = 000000   Size = 003070
+    CODE              Offs = 000000   Size = 001F0A
+    BUFFER            Offs = 000000   Size = 001000
+    CHRMAP            Offs = 000000   Size = 001800
+    INCLUDES          Offs = 000000   Size = 003C70
 C:\Program Files\cc65-snapshot\lib/c64.lib(zeropage.o):
     ZEROPAGE          Offs = 000000   Size = 00001A
 
@@ -14,10 +14,10 @@ Segment list:
 Name                  Start   End     Size
 --------------------------------------------
 ZEROPAGE              000000  000019  00001A
-CODE                  000800  000D52  000553
-CHRMAP                004000  005FFF  002000
-MUSIC                 007000  008161  001162
-INCLUDES              009000  00C06F  003070
+CODE                  000800  002709  001F0A
+BUFFER                003000  003FFF  001000
+CHRMAP                004000  0057FF  001800
+INCLUDES              009000  00CC6F  003C70
 
 
 Exports list:
@@ -29,9 +29,9 @@ tmp1                      000010 RLZ
 Imports list:
 -------------
 ptr1 (zeropage.o):
-    main.o                    main.s(9)
+    main.o                    def/definitions.s(30)
 ptr2 (zeropage.o):
-    main.o                    main.s(9)
+    main.o                    main.s(8)
 tmp1 (zeropage.o):
     main.o                    main.s(9)
 

@@ -41,7 +41,7 @@ Class LandscapeBitmap{
 		$counter = $this->start;
 		$loc = Array();
 		$loc[]=$counter;
-		for($a = 0; $a<$this->depth-1; $a++){
+		for($a = 1; $a<$this->depth; $a++){
 			$foo = ($this->perpsective_strength)*sin(($a*M_PI/2)/$this->depth);
 			$frac = floor(10*($foo - round($foo)));
 			if($frac < 5 && $frac%2 == 1){
@@ -112,42 +112,48 @@ Class LandscapeBitmap{
 		$out .= $hi_out."\n".$lo_out."\n";
 		return $out;
 	}
-	
-	function getSpeedCode(){
-		$copy_src = $this->srcLocations;
-		$out = "";
-		for($i = 0; $i < $this->depth; $i++){
-			if($copy_src[$i]!=null){
-				$rows_to_write = array_keys($copy_src, $copy_src[$i]);
-				
-				// now write the speedcode
-				foreach($rows_to_write as $row){
-					$copy_src[$row] = null;
-				}
-				// only need one row to read
-				$row = $rows_to_write[0];
-				$out .= "lda src_row_HI+".$row."\nsta ptr1+1\nlda src_row_LO+".$row."\nsta ptr1\nldy #0\n";
-				$a = 2;
-				foreach($rows_to_write as $row){
-					$out .= "lda dest_row_HI+".$row."\nsta ptr$a+1\nlda dest_row_LO+".$row."\nsta ptr$a\n";
-					$a++;
-				}
-				$out .= ":\n";
-				$out .= "lda (ptr1),y\niny\n";
-				
-				foreach($rows_to_write as $row){
-					$out .= "sta $".dechex($this->destLocations[$row]+$a*8)."\n";	
-				}
-				$out .= "cpy #".($this->width/8)."\nbne :-\n";
-				
-			}
-		}
-		return $out;
-	}
+
 	function toFile(){
 		$fp = fopen("inc/tables.s","w");
 		fputs($fp, $this->printSrcTables()."\n".$this->printDestTables());
 		fclose($fp);
+		//$fp = fopen("inc/speedcode.s","w");
+		//fputs($fp, $this->getSpeedCode());
+		//fclose($fp);
+	}
+}
+
+Class MotherShipBitmap{
+	private $srcX = Array(0x30, 0x38);
+	private $srcY = Array(0x40, 0x40);
+	private $dest = 0x5300;
+	
+	function getSpeedCode(){
+		$str = "";
+		$frames = count($this->srcX);
+		for($i=0; $i<$frames; $i++){
+			$str .= "mothership_frame_".($i+1).":\n";
+			// we read a row of gfx from bottom to top of each mem frame
+			// and write each sub 8 bytes into seperate chrs 
+			// i.e. seperated by 8 bytes
+			// so 8 bytes per row and 64 rows per frame
+			$f_X = $this->srcX[$i];
+			$f_Y = $this->srcY[$i];
+			for($k=0; $k<64; $k++){
+				for($j=7; $j>=0; $j--){
+					// get the effective read pos
+					$readpos = dechex($f_X+$j) . dechex($f_Y+$k);
+					$writepos = dechex($this->dest + (floor($k/8)*64) + $j*8 + $k%8);
+					
+					$str .= "lda \$$readpos,x\nsta \$$writepos\n";
+				}
+			}
+			$str.="rts\n";
+		}
+		return $str;
+	}
+	
+	function toFile(){
 		$fp = fopen("inc/speedcode.s","w");
 		fputs($fp, $this->getSpeedCode());
 		fclose($fp);
@@ -157,6 +163,7 @@ Class LandscapeBitmap{
 $bitmap = new LandscapeBitmap($gfx_start, $gfx_width, $gfx_height, $field_depth, $perpsective_strength, $starting_chr, $chrset1, $chrset2);
 $bitmap->srcLocations();
 $bitmap->destLocations();
-
 $bitmap->toFile();
+$mothership = new MotherShipBitmap();
+$mothership->toFile();
 ?>
