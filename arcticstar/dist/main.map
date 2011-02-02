@@ -1,7 +1,7 @@
 Modules list:
 -------------
 main.o:
-    CODE              Offs = 000000   Size = 001F0A
+    CODE              Offs = 000000   Size = 00212F
     BUFFER            Offs = 000000   Size = 001000
     CHRMAP            Offs = 000000   Size = 001800
     INCLUDES          Offs = 000000   Size = 003C70
@@ -14,7 +14,7 @@ Segment list:
 Name                  Start   End     Size
 --------------------------------------------
 ZEROPAGE              000000  000019  00001A
-CODE                  000800  002709  001F0A
+CODE                  000800  00292E  00212F
 BUFFER                003000  003FFF  001000
 CHRMAP                004000  0057FF  001800
 INCLUDES              009000  00CC6F  003C70

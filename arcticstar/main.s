@@ -144,62 +144,8 @@ start:
 	:
 	
 	; draw a mothership!
-	lda #96
-	ldx #0
-	:
-	clc
-	sta PAGE_MEM1 + MOTHERSHIP_LOC,x
-	pha
-	lda mothership_colour
-	sta COLOUR_RAM + MOTHERSHIP_LOC,x
-	pla
-	adc #8
-	sta PAGE_MEM1 + MOTHERSHIP_LOC + 40,x
-	pha
-	lda mothership_colour
-	sta COLOUR_RAM + MOTHERSHIP_LOC + 40,x
-	pla
-	adc #8
-	sta PAGE_MEM1 + MOTHERSHIP_LOC + 80,x
-	pha
-	lda mothership_colour
-	sta COLOUR_RAM + MOTHERSHIP_LOC + 80,x
-	pla
-	adc #8
-	sta PAGE_MEM1 + MOTHERSHIP_LOC + 120,x
-	pha
-	lda mothership_colour
-	sta COLOUR_RAM + MOTHERSHIP_LOC + 120,x
-	pla
-	adc #8
-	sta PAGE_MEM1 + MOTHERSHIP_LOC + 160,x
-	pha
-	lda mothership_colour
-	sta COLOUR_RAM + MOTHERSHIP_LOC + 160,x
-	pla
-	adc #8
-	sta PAGE_MEM1 + MOTHERSHIP_LOC + 200,x
-	pha
-	lda mothership_colour
-	sta COLOUR_RAM + MOTHERSHIP_LOC + 200,x
-	pla
-	adc #8
-	sta PAGE_MEM1 + MOTHERSHIP_LOC + 240,x
-	pha
-	lda mothership_colour
-	sta COLOUR_RAM + MOTHERSHIP_LOC + 240,x
-	pla
-	adc #8
-	sta PAGE_MEM1 + MOTHERSHIP_LOC + 280,x
-	pha
-	lda mothership_colour
-	sta COLOUR_RAM + MOTHERSHIP_LOC + 280,x
-	pla
-	sec
-	sbc #55
-	inx
-	cpx #8
-	bne :-
+	;jsr draw_mothership
+	
 	; init the buffer
 	lda #0
 	sta buffer_position
@@ -216,48 +162,140 @@ _mainloop:
 	lda vblank 
 	beq :-
 	; do mainloop here - synced to vblank
+	
+	; inc counters
+	inc frame
+	inc mothership_advance_timer
+	
 	jsr shift_read
 	
 	jsr map_chrs
 	
+	; every 8th mothership pos - update the drawing so the stars get replaced!
+	lda mothership_pos
+	clc
+	lsr
+	lsr
+	lsr
+	sta tmp1
+	lda %00001111
+	bit tmp1
+	bne :+
+		lda mothership_pos
+		jsr draw_mothership_row
+	:
+	
+	ldy mothership_pos
 	lda mothership_frame
 	
 	cmp #0
 	bne :+
-	ldx #0
+	lda #0
+	clc
+	adc mothership_pos
+	tax
+	lda table48_LO,y
+	adc #<mothership_frame_1
+	sta jmpframe1+1
+	lda table48_HI,y
+	adc #>mothership_frame_1
+	sta jmpframe1+2
+	jmpframe1:
 	jsr mothership_frame_1
 	jmp end_mframe
 	:
 	cmp #1
 	bne :+
-	ldx #64
+	lda #64
+	clc
+	adc mothership_pos
+	tax
+	lda table48_LO,y
+	adc #<mothership_frame_1
+	sta jmpframe2+1
+	lda table48_HI,y
+	adc #>mothership_frame_1
+	sta jmpframe2+2
+	jmpframe2:
 	jsr mothership_frame_1
 	jmp end_mframe
 	:
 	cmp #2
 	bne :+
-	ldx #128
+	lda #128
+	clc
+	adc mothership_pos
+	tax
+	lda table48_LO,y
+	adc #<mothership_frame_1
+	sta jmpframe3+1
+	lda table48_HI,y
+	adc #>mothership_frame_1
+	sta jmpframe3+2
+	jmpframe3:
 	jsr mothership_frame_1
 	jmp end_mframe
 	:
 	cmp #3
 	bne :+
-	ldx #0
+	lda #0
+	clc
+	adc mothership_pos
+	tax
+	lda table48_LO,y
+	adc #<mothership_frame_2
+	sta jmpframe4+1
+	lda table48_HI,y
+	adc #>mothership_frame_2
+	sta jmpframe4+2
+	jmpframe4:
 	jsr mothership_frame_2
 	jmp end_mframe
 	:
 	cmp #4
 	bne :+
-	ldx #64
+	lda #64
+	clc
+	adc mothership_pos
+	tax
+	lda table48_LO,y
+	adc #<mothership_frame_2
+	sta jmpframe5+1
+	lda table48_HI,y
+	adc #>mothership_frame_2
+	sta jmpframe5+2
+	jmpframe5:
 	jsr mothership_frame_2
 	jmp end_mframe
 	:
-	ldx #128
+	lda #128
+	clc
+	adc mothership_pos
+	tax
+	lda table48_LO,y
+	adc #<mothership_frame_2
+	sta jmpframe6+1
+	lda table48_HI,y
+	adc #>mothership_frame_2
+	sta jmpframe6+2
+	jmpframe6:
 	jsr mothership_frame_2
 end_mframe:
 
-	;inx
-	;stx mothership_pos
+	lda mothership_pos
+	cmp #64
+	bcs :+
+		clc
+		;lda #128
+		;bit frame
+		;beq :+
+		lda mothership_advance_timer
+		cmp #16
+		bne :+
+		inc mothership_pos
+		lda #0
+		sta mothership_advance_timer
+	:
 	inc mothership_frame
 	lda mothership_frame
 	cmp #6
@@ -349,8 +387,6 @@ raster1:	; init raster
 	jsr chrset1
 	
 	init_raster raster2, #RASTER2_POS
-	; use this for solar flashes - to come later!
-	;init_raster raster_start_solarflash, start_solarflash
 	
 	jmp $ea31		;call next interrupt
 	
@@ -367,7 +403,7 @@ raster_end_solarflash:
 	lda #BLACK
 	sta BGRCOL
 	jsr roll_solarflash
-	init_raster raster2, #RASTER2_POS
+	init_raster raster1, #RASTER1_POS
 	jmp $ea31		;call next interrupt
 	
 raster2:	; banner init raster
@@ -438,10 +474,6 @@ shift_read:
 	jmp :---
 	:
 	rts
-	
-map_chrs_unrolled:
-	;.include "inc/speedcode.s"	
-	rts
 
 init_mothership:
 	; copy frame 1
@@ -511,7 +543,7 @@ init_mothership:
     jsr init_loop
     
     ; do the first frames speedcode!
-    ldx #128
+    ldx #0
 	jsr mothership_frame_2
     
     rts
@@ -556,10 +588,6 @@ init_loop:
 :
     rts
     
-roll_buffer:
-
-	rts
-
 	
 map_chrs:
 	; now for each row, read and write bytes
@@ -685,18 +713,20 @@ buffer_position:
     .byte 0
 bitmap_position:
     .word 0
-
+frame:
+	.byte 0
+	
 .include "inc/tables.s"
 
 times8:
-	.byte 0,8,16,24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184
+	.byte 0,8,16,24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184,192,200,208,216,224,232,240,248
 
 solarflash_pos:
 	.byte 0
 solarflash_width:
-	.byte 14
+	.byte 2
 solarflash:
-	.byte 152,147,145,142,138,133,127,120,112,103,93,82,70,57,40
+	.byte 145,142,140,137,133,128,122,115,107,98,88,77,65,52,35
 
 solarflash_colour:
 	.byte YELLOW
@@ -744,18 +774,209 @@ roll_solarflash:
 	:	
 	rts
 
+draw_mothership:
+	lda #96
+	ldx #0
+	:
+	clc
+	sta PAGE_MEM1 + MOTHERSHIP_LOC,x
+	pha
+	lda mothership_colour,x
+	sta COLOUR_RAM + MOTHERSHIP_LOC,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 40,x
+	pha
+	lda mothership_colour,x
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 40,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 80,x
+	pha
+	lda mothership_colour,x
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 80,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 120,x
+	pha
+	lda mothership_colour,x
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 120,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 160,x
+	pha
+	lda mothership_colour,x
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 160,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 200,x
+	pha
+	lda mothership_colour,x
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 200,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 240,x
+	pha
+	lda mothership_colour,x
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 240,x
+	pla
+	adc #8
+	sta PAGE_MEM1 + MOTHERSHIP_LOC + 280,x
+	pha
+	lda mothership_colour,x
+	sta COLOUR_RAM + MOTHERSHIP_LOC + 280,x
+	pla
+	sec
+	sbc #55
+	inx
+	cpx #8
+	bne :-
+	rts
+	
+draw_mothership_row:
+	clc
+	lsr
+	lsr
+	lsr
+	sta tmp1
+	lda #7
+	sec
+	sbc tmp1
+	cmp #0
+	bne :+
+		lda #<(PAGE_MEM1 + MOTHERSHIP_LOC)
+		sta ptr1
+		lda #>(PAGE_MEM1 + MOTHERSHIP_LOC)
+		sta ptr1+1
+		lda #<(COLOUR_RAM + MOTHERSHIP_LOC)
+		sta ptr2
+		lda #>(COLOUR_RAM + MOTHERSHIP_LOC)
+		sta ptr2+1
+		lda #96
+		jmp end_mptrs
+	:
+	cmp #1
+	bne :+
+		lda #<(PAGE_MEM1 + MOTHERSHIP_LOC + 40)
+		sta ptr1
+		lda #>(PAGE_MEM1 + MOTHERSHIP_LOC + 40)
+		sta ptr1+1
+		lda #<(COLOUR_RAM + MOTHERSHIP_LOC + 40)
+		sta ptr2
+		lda #>(COLOUR_RAM + MOTHERSHIP_LOC + 40)
+		sta ptr2+1
+		lda #96+1*8
+		jmp end_mptrs
+	:
+	cmp #2
+	bne :+
+		lda #<(PAGE_MEM1 + MOTHERSHIP_LOC + 80)
+		sta ptr1
+		lda #>(PAGE_MEM1 + MOTHERSHIP_LOC + 80)
+		sta ptr1+1
+		lda #<(COLOUR_RAM + MOTHERSHIP_LOC + 80)
+		sta ptr2
+		lda #>(COLOUR_RAM + MOTHERSHIP_LOC + 80)
+		sta ptr2+1
+		lda #96+2*8
+		jmp end_mptrs
+	:
+	cmp #3
+	bne :+
+		lda #<(PAGE_MEM1 + MOTHERSHIP_LOC + 120)
+		sta ptr1
+		lda #>(PAGE_MEM1 + MOTHERSHIP_LOC + 120)
+		sta ptr1+1
+		lda #<(COLOUR_RAM + MOTHERSHIP_LOC + 120)
+		sta ptr2
+		lda #>(COLOUR_RAM + MOTHERSHIP_LOC + 120)
+		sta ptr2+1
+		lda #96+3*8
+		jmp end_mptrs
+	:
+	cmp #4
+	bne :+
+		lda #<(PAGE_MEM1 + MOTHERSHIP_LOC + 160)
+		sta ptr1
+		lda #>(PAGE_MEM1 + MOTHERSHIP_LOC + 160)
+		sta ptr1+1
+		lda #<(COLOUR_RAM + MOTHERSHIP_LOC + 160)
+		sta ptr2
+		lda #>(COLOUR_RAM + MOTHERSHIP_LOC + 160)
+		sta ptr2+1
+		lda #96+4*8
+		jmp end_mptrs
+	:
+	cmp #5
+	bne :+
+		lda #<(PAGE_MEM1 + MOTHERSHIP_LOC + 200)
+		sta ptr1
+		lda #>(PAGE_MEM1 + MOTHERSHIP_LOC + 200)
+		sta ptr1+1
+		lda #<(COLOUR_RAM + MOTHERSHIP_LOC + 200)
+		sta ptr2
+		lda #>(COLOUR_RAM + MOTHERSHIP_LOC + 200)
+		sta ptr2+1
+		lda #96+5*8
+		jmp end_mptrs
+	:
+	cmp #6
+	bne :+
+		lda #<(PAGE_MEM1 + MOTHERSHIP_LOC + 240)
+		sta ptr1
+		lda #>(PAGE_MEM1 + MOTHERSHIP_LOC + 240)
+		sta ptr1+1
+		lda #<(COLOUR_RAM + MOTHERSHIP_LOC + 240)
+		sta ptr2
+		lda #>(COLOUR_RAM + MOTHERSHIP_LOC + 240)
+		sta ptr2+1
+		lda #96+6*8
+		jmp end_mptrs
+	:
+	lda #<(PAGE_MEM1 + MOTHERSHIP_LOC + 280)
+	sta ptr1
+	lda #>(PAGE_MEM1 + MOTHERSHIP_LOC + 280)
+	sta ptr1+1
+	lda #<(COLOUR_RAM + MOTHERSHIP_LOC + 280)
+	sta ptr2
+	lda #>(COLOUR_RAM + MOTHERSHIP_LOC + 280)
+	sta ptr2+1
+	lda #96+7*8
+
+	end_mptrs:
+	
+	ldy #0
+	:
+	sta (ptr1),y
+	pha
+	lda mothership_colour,y
+	sta (ptr2),y
+	pla
+	clc
+	adc #1
+	iny
+	cpy #8
+	bne :-
+	rts	
+
 level:
-	.byte 1
+	.byte 4
 landscape_cols:
 	.byte DBLUE
 	.byte LBLUE
 level_colours:
 	.byte DBLUE, LBLUE, RED, LRED, DGREEN, LGREEN, DGREY, LGREY, BROWN, ORANGE
 mothership_colour:
-	.byte LRED
+	;.byte RED,LRED,WHITE,LRED,LRED,RED,BROWN,DGREY
+	.byte ORANGE,YELLOW,WHITE,YELLOW,YELLOW,ORANGE,BROWN,DGREY
+	;.byte DGREEN,LGREEN,WHITE,LGREEN,LGREEN,DGREEN,DGREEN,DGREY
+	;.byte DBLUE,LBLUE,WHITE,LBLUE,LBLUE,DBLUE,DBLUE,DGREY
+	;.byte GREY,LGREY,WHITE,LGREY,LGREY,GREY,GREY,DGREY
 mothership_pos:
 	.byte 0
 mothership_frame:
+	.byte 0
+mothership_advance_timer:
 	.byte 0
 .include "inc/speedcode.s"
 

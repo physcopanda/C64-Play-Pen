@@ -112,10 +112,24 @@ Class LandscapeBitmap{
 		$out .= $hi_out."\n".$lo_out."\n";
 		return $out;
 	}
+	
+	function table48(){
+		$loc = 0x0;
+		$hi_out = "table48_HI:\t.byte\t";
+		$lo_out = "table48_LO:\t.byte\t";
+		for($i=64; $i>=0; $i--){
+			$loc = $i*48;
+			$hloc = dechex($loc);
+			if(strlen($hloc)<4) $hloc = str_repeat("0", 4-strlen($hloc)) . $hloc;
+			$hi_out .= "$".substr($hloc, 0, 2).",";
+			$lo_out .= "$".substr($hloc, 2, 2).",";
+		} 
+		return substr($hi_out,0,-1)."\n".substr($lo_out,0,-1)."\n";
+	}
 
 	function toFile(){
 		$fp = fopen("inc/tables.s","w");
-		fputs($fp, $this->printSrcTables()."\n".$this->printDestTables());
+		fputs($fp, $this->printSrcTables()."\n".$this->printDestTables()."\n".$this->table48());
 		fclose($fp);
 		//$fp = fopen("inc/speedcode.s","w");
 		//fputs($fp, $this->getSpeedCode());
@@ -125,7 +139,7 @@ Class LandscapeBitmap{
 
 Class MotherShipBitmap{
 	private $srcX = Array(0x30, 0x38);
-	private $srcY = Array(0x40, 0x40);
+	private $srcY = Array(0x0, 0x0);
 	private $dest = 0x5300;
 	
 	function getSpeedCode(){
@@ -142,7 +156,7 @@ Class MotherShipBitmap{
 			for($k=0; $k<64; $k++){
 				for($j=7; $j>=0; $j--){
 					// get the effective read pos
-					$readpos = dechex($f_X+$j) . dechex($f_Y+$k);
+					$readpos = dechex($f_X+$j) . (strlen(dechex($f_Y+$k))==1?"0":"") . dechex($f_Y+$k);
 					$writepos = dechex($this->dest + (floor($k/8)*64) + $j*8 + $k%8);
 					
 					$str .= "lda \$$readpos,x\nsta \$$writepos\n";
