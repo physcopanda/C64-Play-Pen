@@ -4,5 +4,8 @@ ZEROPAGE       :	RED
 CODE           :	CYAN
 BUFFER         :	PURPLE
 CHRMAP         :	DGREEN
-INCLUDES       :	DBLUE
+SCREEN         :	DBLUE
+SPRITES        :	YELLOW
+SPEEDCODE      :	ORANGE
+INCLUDES       :	BROWN
 -------------

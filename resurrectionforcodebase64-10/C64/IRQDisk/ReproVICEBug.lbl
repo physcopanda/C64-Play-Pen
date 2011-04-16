@@ -1,0 +1,8 @@
+al C:ffb7 .READST
+al C:ff93 .SECOND
+al C:ffa8 .CIOUT
+al C:ff81 .CINT
+al C:0400 .SCREENRAM
+al C:ffb1 .LISTEN
+al C:ffae .UNLSN
+al C:086a .IRQDisk_InitDrive

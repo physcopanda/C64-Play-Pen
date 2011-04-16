@@ -1,0 +1,108 @@
+; Reproduces the VICE drive time out bug.
+; This code repeatedly issues to drive 8 the command "M-W$00$05$20" followed by $20 bytes of data
+; from the screen memory.
+
+; Normal operation will show a blank screen with the first top left character animating for every
+; M-W command successfully completed. The loop issuing the command will repeat until there is an
+; error reported by the KERNAL. In normal operation there should "never" be an error.
+
+; The bug is reproduced when VICE has more than one true drive activated, for example four drives,
+; the KERNAL will report a $03 or $83 error indicating the drive timed out or was not present.
+
+!to "ReproVICEBug.prg", cbm
+!sl "ReproVICEBug.map"
+!svl "ReproVICEBug.lbl"
+!cpu 6510
+!ct pet
+
+SCREENRAM = $400
+
+CIOUT   = $FFA8
+CINT    = $FF81
+SECOND  = $FF93
+UNLSN   = $FFAE
+LISTEN  = $FFB1
+READST  = $FFB7
+
+; The number of bytes sent with each M-W drive command
+.driveTransferBytes = $20
+; Send the screen data to the drive
+.driveCodePseudoStart = $400
+; Where to store the data on the drive
+.driveCodeRealStart = $500
+
+*= $801
+!byte $0b,$08,$01,$00,$9e		; Line 1 SYS2061
+!convtab pet
+!tx "2061"						; Address for sys start in text
+!byte $00,$00,$00				; This is really the end of our BASIC program
+
+	jsr CINT
+	lda #0
+	sta SCREENRAM
+	lda #8						; Assume drive 8
+	sta .toDrive
+.driveWriteLoop
+	jsr IRQDisk_InitDrive
+	jsr READST
+	and #%10000011	; Ignore EOI
+	bne .initError
+
+	ldx #0
+.mwoutl:
+	lda .commandMW,x
+	jsr CIOUT
+	jsr READST
+	and #%10000011	; Ignore EOI
+	bne .initError
+	inx
+	cpx #.commandMWLength
+	bne .mwoutl
+
+	; Sends a chunk of .driveTransferBytes bytes of drive code following the M-W command
+	ldx #0
+.smwdcbl:
+	lda .driveCodePseudoStart,x
+	jsr CIOUT
+	jsr READST
+	and #%10000011	; Ignore EOI
+	bne .initError
+	inx
+	cpx #.driveTransferBytes
+	bne .smwdcbl
+
+	; Finish the command
+	jsr UNLSN
+	jsr READST
+	and #%10000011	; Ignore EOI
+	bne .initError
+
+	; Increment the screen memory location to indicate a successful transfer to the drive memory
+	inc SCREENRAM
+	; And loop again until we get an error
+	jmp .driveWriteLoop
+
+.initError
+	; Store the error to the screen
+	sta SCREENRAM+1
+	sec
+	inc $d020
+	rts
+
+	; The M-W command
+.commandMW:
+	!raw "M-W"
+.commandMWLo !by <.driveCodeRealStart
+.commandMWHi !by >.driveCodeRealStart
+	!by .driveTransferBytes
+.commandMWLength = * - .commandMW
+
+
+IRQDisk_InitDrive:
+	lda .toDrive
+	jsr LISTEN
+	; http://www.joler.org/storage/C64PRG10.TXT
+	; B-27. Function Name: SECOND - "When a secondary address is to be sent to a device on the serial bus, the address must first be ORed with $60."
+	lda #$6f	; $f (command channel) OR $60
+	jmp SECOND
+.toDrive !by 8

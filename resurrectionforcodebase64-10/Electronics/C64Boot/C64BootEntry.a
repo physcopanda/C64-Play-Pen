@@ -1,0 +1,63 @@
+; Includes a kernal ROM image and copies it to $e000 before executing it.
+!to "C64Boot.prg", cbm
+!sl "C64Boot.map"
+;!svl "C64Boot.lbl"
+!cpu 6510
+!ct pet
+
+
+; C:\VICE\x64.exe
+; -confirmexit C64Boot.prg
+
+!source "../../C64/stdlib/stdlib.a"
+
+!source "../../C64/stdlib/BASICEntry900.a"
+
+*=BASICEntry
+!zn
+	lda #ProcessorPortAllRAMWithIO
+	jsr InitialiseMachine
+
+	; Copy everything to the kernel space
+	ldy #0
+.l1
+	lda MyKERNALROMDataStart,y
+	sta KERNALROM,y
+	iny
+	bne .l1
+	inc .l1+2
+	inc .l1+5
+	bne .l1
+.l2
+	lda MyBASICROMDataStart,y
+	sta BASICROM,y
+	iny
+	bne .l2
+	inc .l2+2
+	inc .l2+5
+	lda .l2+5
+	cmp #$c0
+	bne .l2
+
+	; Clear the lower memory, not with zero but with 'space', just so we don't have anything floating around
+	; Clearing to a known pattern also lets us easily see, using the VIC pointing at zeropage, what is changed in memory.
+	lda #32
+.l3
+	sta $0002,y
+	sta $0102,y
+	sta $0202,y
+	sta $0302,y
+	iny
+	bne .l3
+
+	jmp (KERNALColdStartResetLo)
+
+
+!source "../../C64/stdlib/Initialise.a"
+
+MyKERNALROMDataStart
+!bin "../BootROM.bin"
+;!bin "../KernalROM.bin"
+
+MyBASICROMDataStart
+;!bin "../BASICROM.bin"

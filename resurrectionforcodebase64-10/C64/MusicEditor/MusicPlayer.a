@@ -1,0 +1,973 @@
+; TODO
+; Check DiskfullSide1.d64 for the Future composer convertor. Port and document.
+; It loads files from MusicUtilsSide1.d64
+; Boot DiskfullSide1.d64
+; Press space to switch off the turbo.
+; Press 4 for the convertor.
+; This loads musicfact.ba
+; Mount the MusicUtilsSide1.d64
+; Enter something like MUSIC3*
+; Then press N to not save then any key.
+; Find the sources, tidy the convertor source first then the pretty demo.
+
+; Find the sources for the sources for the music editor intro demo.
+
+; Check existing music files for DUR >= $80 and make them DUR $7F maximum
+
+; Add the ability to trigger notes with effects in the least used channel or specific channels.
+; Useful if the effects editor is expanded and also useful for game sound effects.
+
+; Add the ability to play a block on a certain voice, then stop playing that voice. Useful if the
+; block editor gets expanded.
+
+; Update the music editor to really expand sound effect editing. Sliders controls? Maybe?
+; Definitely needs a new full screen anyway.
+
+; Expand the block editor by making it possible to play the currently editing block with two others.
+; Perhaps store out nice sounding blocks ready to be imported.
+; Add a block length (ie. in terms of total time, not bytes) print while editing.
+
+; The bit which renders the effects each frame (.fxforvoice) is not slow.
+; .realNotePlay is slow, high priority for optimisation.
+
+; Make the zero page usage configurable instead of using hard coded $fb/$fc values
+
+; To avoid the slightly expensive always copy to the SID we will store directly to the SID instead.
+; These variables can be stored directly and only those with a * have some read access:
+; *.atde , .sure , 
+
+; MPi: TODO: Document FLL FLH FLC FLP
+
+!ifdef MusicPlayerStart { } else {
+MusicPlayerCodeToDataOffset = $700
+MusicPlayerStart = *
+; Use A to init the tune
+MusicPlayerInit = *
+; Call 50 times per second
+MusicPlayerPlay = * + $3
+; Stop music
+MusicPlayerStop = * + $6
+MusicPlayerTrackPos = * + $9
+; Just to introduce a warning if the above code oversteps its boundary
+*=MusicPlayerStart + MusicPlayerCodeToDataOffset
+MusicPlayerDataStart = *
+*=MusicPlayerStart	; And rewind to the proper start
+}
+
+; The order and values of these are important because bcs tests are used when comparing with
+; kMusicPlayer_StopTrack
+; Track control defines
+kMusicPlayer_StopTrack		= $fd
+kMusicPlayer_StopAllTracks	= $fe
+kMusicPlayer_LoopTrack		= $ff
+kMusicPlayer_RepeatBlock	= $40
+kMusicPlayer_TransposeBlock	= $80
+
+; Block control defines
+kMusicPlayer_FilterHi		= $f6
+kMusicPlayer_FilterLo		= $f7
+kMusicPlayer_FilterControl	= $f8
+kMusicPlayer_FilterPass		= $f9
+kMusicPlayer_Duration		= $fa
+kMusicPlayer_Envelope		= $fb
+kMusicPlayer_Volume			= $fc
+kMusicPlayer_EndBlock		= $fd
+kMusicPlayer_Glide			= $fe
+;$ff seems to be unused and checked for in the block editor as a blank line
+
+!zn {
+; MPi: TODO: Make these optionally configurable by defining values before this file is included.
+.track1 = * + MusicPlayerCodeToDataOffset	; The start of the music data in memory. Must be aligned on $100 bytes.
+.track2 = * + MusicPlayerCodeToDataOffset + $100
+.track3 = * + MusicPlayerCodeToDataOffset + $200
+.envdata = * + MusicPlayerCodeToDataOffset + $300	; Also called FX table data
+.loblock = * + MusicPlayerCodeToDataOffset + $400
+.hiblock = * + MusicPlayerCodeToDataOffset + $400 + maxBlocks
+
+; This entry point for this module *must* three jmps followed by 2 filter bytes plus 3 track pos bytes
+	jmp .start					; 0
+	jmp .play					; 3
+	jmp .stopplay				; 6
+
+.bitstart					; b
+.trcn !by 0,0,0			; Read by the track editor to show the current track position. *Must be* the first in this list
+.atde !by 0,0,0
+.sure !by 0,0,0
+.core !by 0,0,0
+.pwhi !by 0,0,0
+; A cache of the value .envdata+3 and#%11000000 lsr*4
+.pwhic !by 0,0,0
+.pwhit !by 0,0,0
+.pwlo !by 0,0,0
+.glti !by 0,0,0
+.glno !by 0,0,0
+.tran !by 0,0,0
+.ntlo !by 0,0,0
+.nthi !by 0,0,0
+.blcn !by 0,0,0
+.doubleNoteDurationLo !by 0,0,0
+.lasn !by 0,0,0
+.lst1 !by 0,0,0
+.retr !by 0,0,0
+.fxfv !by 0,0,0
+.vols !by 0,0,0
+; Can be zero, positive or negative
+.drumFlag !by 0,0,0
+.wibt !by 0,0,0
+.largeWibbleEnable !by 0,0,0
+.envDataP4_1	!by 0,0,0
+.envDataP4_2	!by 0,0,0
+.envDataP5_1	!by 0,0,0
+.envDataP5_2	!by 0,0,0
+.ltnt !by 0,0,0
+.wibf !by 0,0,0
+.gltf !by 0,0,0
+.pcnt !by 0,0,0
+.pdel !by 0,0,0
+.origalNoteDuration !by 0,0,0
+.trkp !by 0,0,0
+.nextNotePlay !by 0,0,0
+.playflag !by 0		; If 0 then stop otherwise play
+.processFirstFrame !by 0
+; Everything up to here from .bitstart is zeroed in code
+.bitend
+
+.hin !by 43,8,12,143,130,13
+.wvf !by 129,65,64,128,128,64
+.hinb !by 40,8,7,5,3,1,1,1,1,1,1
+.wvfb !by 129,65,64,64,64,64,64,64,64,64,64
+.hint !by 8,8,12,143,9,9,9,9,9
+.wvft !by 129,65,64,64,64,64,64,128,64,64
+.lonote
+	!by 12,28,45,62,81,102,123,145,169,195,221,250,24,56,90,125,163,204,246
+	!by 35,83,134,187,244,48,112,180,251,71,152,237,71,167,12,119,233,97
+	!by 225,104,247,143,48,218,143,78,24,239,210,195,195,209,239,31,96,181,30
+	!by 156,49,223,165,135,134,162,223,62,193,107,60,57,99,190,75,15,12,69,191
+	!by 125,131,214,121,115,199,124,151,30,24,139,126,250,6,172,243,230,143,248,46
+.hinote
+	!by 1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,3,3,3,3,3,4,4,4,4,5,5,5,6,6,7,7,7
+	!by 8,8,9,9,10,11,11,12,13,14,14,15,16,17,18,19,21,22,23,25,26,28,29
+	!by 31,33,35,37,39,42,44,47,50,53,56,59,63,67,71,75,79,84,89,94,100,106
+	!by 112,119,126,134,142,150,159,168,179,189,200,212,225,238,253
+
+
+.volu !by 15
+.tmpx !by 0
+.start
+	sta .tmpx	; Backup A
+	lda #0
+	ldy #(.bitend-.bitstart)
+.s1
+	sta .bitstart-1,y
+	dey
+	bne .s1
+	ldy #$1c
+.s2
+	sta SID,y
+	dey
+	bpl .s2
+	lda #15
+	sta .playflag
+	sta .volu
+	ldx .tmpx	; Restore A
+	beq .rightplace
+	ldy #0
+.s3
+	lda .track1,y
+	cmp #kMusicPlayer_StopTrack
+	bcs .finded1
+.retfind1
+	iny
+	bne .s3
+.yep1
+	sty .trcn
+	ldx .tmpx
+	jmp .s4
+.finded1
+	dex
+	beq .yep1
+	jmp .retfind1
+.s4
+	ldy #0
+.s5
+	lda .track2,y
+	cmp #kMusicPlayer_StopTrack
+	bcs .finded2
+.retfind2
+	iny
+	bne .s5
+.yep2
+	sty .trcn+1
+	ldx .tmpx
+	jmp .s6
+.finded2
+	dex
+	beq .yep2
+	jmp .retfind2
+.s6
+	ldy #0
+.s7
+	lda .track3,y
+	cmp #kMusicPlayer_StopTrack
+	bcs .finded3
+.retfind3
+	iny
+	bne .s7
+.yep3
+	sty .trcn+2
+	jmp .s8
+.finded3
+	dex
+	beq .yep3
+	jmp .retfind3
+.s8
+	inc .trcn+1
+	inc .trcn+2
+	inc .trcn
+.rightplace
+	lda .trcn
+	sta .lst1
+	lda .trcn+1
+	sta .lst1+1
+	lda .trcn+2
+	sta .lst1+2
+
+.endplay
+	rts
+
+.lnotThisFrame
+	inc .processFirstFrame
+	jmp .notThisFrame
+
+; This function checks quickly disables the voice ready the the new sound to be generated in the
+; next frames. This fixes the SID bug where sometimes a note will fail to trigger cleanly.
+.checkVoiceRetrigger
+	lda .core,x
+	beq .p1zcz
+;	and #1
+;	bne .p1zcz
+	lda #%1001
+	sta .core,x
+	jmp .p1zcz
+
+; The main entry point for the play routine to be called ~50 times per sec
+.play
+!ifdef MusicPlayer_DebugBorder {
+	lda #VIC2Colour_Red
+	sta VIC2BorderColour
+}
+	ldx #2
+	lda .volu
+	sta SIDVolumeFilter
+	lda .playflag
+	beq .endplay
+
+	lda .processFirstFrame
+	beq .lnotThisFrame
+
+; This play routine basically splits itself into some chunks to allow a new note to be processed over two shorter frames instead of one larger frame:
+; Gets a new note if it is available from the buffered next note.
+; Updates the voice effects
+; Then stores the internal voices to SID
+; Then updates the sequence interals which can store what note to get next
+
+; Handle each track (voice) effects
+.p2
+	ldy .nextNotePlay,x
+	beq .p2Skip
+	lda #0
+	sta .nextNotePlay,x
+	jmp .realNotePlay
+.realNotePlayRet
+.p2Skip
+	lda .trkp,x
+	bne .p1zcz				; Skip track if we are not playing it
+
+; Perform effects for each voice
+	lda .drumFlag,x
+;	bmi .gsret
+	beq .nodrumsound
+	jmp .drumbit
+.nodrumsound
+	jmp .fmbit
+.gsret
+	dec .doubleNoteDurationLo,x
+	beq .checkVoiceRetrigger
+.p1zcz
+	dex
+	bpl .p2
+
+!ifdef MusicPlayer_DebugBorder {
+	lda #VIC2Colour_Green
+	sta VIC2BorderColour
+}
+
+; Store the voice data from our internal copy to the SID
+	lda .volu
+	beq .endplay
+	lda .trkp
+	bne .noteoff2
+.noteoff
+	lda .atde
+	sta SIDVoice1AttackDecay
+	lda .sure
+	sta SIDVoice1SustainRelease
+	lda .ntlo
+	sta SIDVoice1FreqLo
+	lda .nthi
+	sta SIDVoice1FreqHi
+	lda .pwlo
+	sta SIDVoice1PulseWidthLo
+	lda .pwhi
+	sta SIDVoice1PulseWidthHi
+	lda .core
+	sta SIDVoice1Control
+.noteoff2 lda .trkp+1
+	bne .noteoff3
+	lda .atde+1
+	sta SIDVoice2AttackDecay
+	lda .sure+1
+	sta SIDVoice2SustainRelease
+	lda .ntlo+1
+	sta SIDVoice2FreqLo
+	lda .nthi+1
+	sta SIDVoice2FreqHi
+	lda .pwlo+1
+	sta SIDVoice2PulseWidthLo
+	lda .pwhi+1
+	sta SIDVoice2PulseWidthHi
+	lda .core+1
+	sta SIDVoice2Control
+.noteoff3 lda .trkp+2
+	bne .noteoff4
+	lda .atde+2
+	sta SIDVoice3AttackDecay
+	lda .sure+2
+	sta SIDVoice3SustainRelease
+	lda .ntlo+2
+	sta SIDVoice3FreqLo
+	lda .nthi+2
+	sta SIDVoice3FreqHi
+	lda .pwlo+2
+	sta SIDVoice3PulseWidthLo
+	lda .pwhi+2
+	sta SIDVoice3PulseWidthHi
+	lda .core+2
+	sta SIDVoice3Control
+.noteoff4
+
+.notThisFrame
+
+!ifdef MusicPlayer_DebugBorder {
+	lda #VIC2Colour_Cyan
+	sta VIC2BorderColour
+}
+
+; Now handle the state of each voice
+	ldx #2
+.p2ch
+	lda .doubleNoteDurationLo,x
+	beq .handleseq
+	cmp .origalNoteDuration,x
+	beq .makeVoiceRelease
+	; If after one frame of no attack & decay then we trigger a release. This one frame delay is
+	; important because the SID needs time to attack & decay for ~8ms before reaching the sustain
+	; volume.
+	lda .atde,x
+	bne .p1
+.makeVoiceRelease
+	; Change the voice to be in the release state from attack/sustain
+	lda .core,x
+	and #%11111110
+	sta .core,x
+.handleseqRet
+.p1
+	dex
+	bpl .p2ch
+!ifdef MusicPlayer_DebugBorder {
+	lda #VIC2Colour_Black
+	sta VIC2BorderColour
+}
+	rts
+
+.stopplay
+	lda #0
+	sta .volu
+	sta .playflag
+	rts
+
+.lstTrPos !by 0
+
+.transpose
+	and #%01111111
+	sta .tran,x
+	inc .trcn,x
+	jmp .hsi1
+
+.loopplay
+	; Crash fix 1
+	; Detect endless loops and stop the track if needed
+	dec .lstTrPos
+	beq .endtrack
+
+	lda .lst1,x
+	sta .trcn,x
+	tay
+
+	jmp .sm1
+
+.repeatbl
+	and #$3f
+	sta .retr,x
+	inc .trcn,x
+	iny
+	jmp .sm1
+
+.endtrack
+	sta .trkp,x
+; Check for all three tracks turning off and turn off the playflag if so
+; Commented out to save some memory
+;	lda .trkp
+;	ora .trkp+1
+;	ora .trkp+2
+;	sta .playflag
+	ldy .voft,x
+	lda #0				; MPi: TODO: Shouldn't this be eight to disable the voice? Maybe it just sets the note to release?
+	sta SIDVoice1Control,y
+	jmp .handleseqRet
+
+.voft !by 0,7,14
+
+.handleseq
+	txa
+	clc
+	adc #>.track1
+	sta .sm1+2
+
+	; Store a value > 2 to detect endless loops. Each time kMusicPlayer_LoopTrack happens it will
+	; decr this counter and if it reaches 0 then an endless loop problem is detected.
+	sta .lstTrPos
+
+.hsi1
+	ldy .trcn,x
+.sm1
+	lda .track1,y
+	cmp #kMusicPlayer_RepeatBlock
+	bcc .block
+	cmp #kMusicPlayer_TransposeBlock
+	bcc .repeatbl
+	cmp #kMusicPlayer_StopTrack
+	beq .endtrack
+	cmp #kMusicPlayer_StopAllTracks
+	beq .stopplay
+	bcs .loopplay
+	jmp .transpose
+;rest
+
+.handleFiltHi
+	iny
+	lda ($fb),y
+	; MPi: TODO: Instead of updating the SID register directly might need to buffer it
+	sta SIDFilterCutoffFreqHi
+	iny
+	jmp .loop
+.handleFiltLo
+	iny
+	lda ($fb),y
+	; MPi: TODO: Instead of updating the SID register directly might need to buffer it
+	sta SIDFilterCutoffFreqHi
+	iny
+	jmp .loop
+.handleFiltControl
+	iny
+	lda ($fb),y
+
+	; MPi: TODO: Instead of updating the SID register directly might need to buffer it
+	sta SIDFilterControl
+
+	iny
+	jmp .loop
+.handleFiltPass
+	iny
+
+	; Just update the filter pass flags
+	lda .volu
+	and #%00001111
+	ora ($fb),y
+	sta .volu
+
+	iny
+	jmp .loop
+
+.handleVolume
+	iny
+
+	; Just update the volume
+	lda .volu
+	and #%11110000
+	ora ($fb),y
+	sta .volu
+
+	iny
+	jmp .loop
+
+; a = Process what block number.
+.block
+	tay
+	lda .loblock,y
+	sta $fb
+	lda .hiblock,y
+	sta $fc
+
+; Get the previous count
+	ldy .blcn,x
+
+; Playing a note comes back to here until a note is processed or the block ends
+	; Y is preserved until a note is played and then it is stored back into .blcn,x
+.loop
+	lda ($fb),y
+	bpl .noteplayBuffered		; Branch if "plus", i.e. <= $7f
+
+	cmp #kMusicPlayer_Duration
+	beq .durchnge
+	cmp #kMusicPlayer_Envelope
+	beq .sndchnge
+	cmp #kMusicPlayer_EndBlock
+	beq .endblock
+	bcs .glidentd
+
+	cmp #kMusicPlayer_Volume
+	beq .handleVolume
+	cmp #kMusicPlayer_FilterHi
+	beq .handleFiltHi
+	cmp #kMusicPlayer_FilterLo
+	beq .handleFiltLo
+	cmp #kMusicPlayer_FilterControl
+	beq .handleFiltControl
+	cmp #kMusicPlayer_FilterPass
+	beq .handleFiltPass
+
+	; Note the fall through, this is to avoid wasting space trapping rubbish block numbers
+
+.noteplayBuffered
+	sec
+	adc .tran,x
+;	adc #1	; The sec above adds 1
+	sta .nextNotePlay,x
+	iny
+	tya
+	sta .blcn,x
+	jmp .handleseqRet
+
+.sndchnge
+	iny
+	lda ($fb),y
+	asl
+	asl
+	asl
+	sta .lasn,x
+	iny
+	jmp .loop
+.durchnge
+	iny
+	lda ($fb),y
+	sta .origalNoteDuration,x
+	iny
+	jmp .loop
+.glidentd
+	iny
+	lda ($fb),y
+	bpl .gldz1
+	and #%01111111
+	eor #255
+.gldz1
+	sta .glno,x
+	iny
+	lda ($fb),y
+	sta .glti,x
+	iny
+;	tya
+;	sta .blcn,x
+	lda #2
+	sta .gltf,x
+	jmp .loop
+; Unused block opcode, future expansion.
+.endblock
+	lda .retr,x
+	beq .nextstep
+	ldy #0
+	dec .retr,x
+	jmp .loop
+.nextstep
+	lda #0
+	sta .blcn,x
+	inc .trcn,x
+	jmp .hsi1
+
+	; Y = the note + 1
+.realNotePlay
+	dey
+	tya
+	sta .ltnt,x
+	lda .lonote,y
+	sta .ntlo,x
+	lda .hinote,y
+	sta .nthi,x
+	lda .origalNoteDuration,x
+	asl
+	sta .doubleNoteDurationLo,x
+
+	; A = 0 is used down below
+	lda #0
+	dec .gltf,x
+	bne .noend
+	sta .glno,x
+.noend
+; Store effects for the voice when it plays
+	ldy .lasn,x
+	sta .drumFlag,x
+	sta .fxfv,x
+	sta .wibf,x
+	sta .pwlo,x
+	sta .pcnt,x
+	lda .envdata+1,y
+	sta .sure,x
+	lda .envdata+2,y
+	and #%11111101
+	bne .oskiplot
+.skiplot
+	sta .core,x
+	sta .ntlo,x
+	sta .nthi,x
+	jmp .realNotePlayRet
+.oskiplot
+	sta .core,x
+	cmp #64
+	bcc .nopdel1
+	and #%00111000
+	lsr
+	sta .pdel,x
+	lda .core,x
+	and #%11000111
+	sta .core,x
+.nopdel1
+	lda .envdata,y
+	sta .atde,x
+
+	lda .envdata+3,y
+	sta .pwhi,x
+
+	and #%11000000
+	beq .noType
+	lsr
+	lsr
+	lsr
+	lsr
+	sta .pwhic,x
+	lda .envdata+3,y
+	and #%00110000
+.noType
+	sta .pwhit,x
+
+	lda .envdata+6,y
+	sta .vols,x
+
+	; Volume changes have been removed from the envelope and replaced with the VOL command
+
+	and #$f0
+	cmp #$80
+	bne .nodrumsound2
+	lda #1	; A positive flag meaning do the drums
+	sta .drumFlag,x
+.nodrumsound2
+
+	lda .envdata+4,y
+	ora .envdata+5,y
+	sta .largeWibbleEnable,x
+	beq .skipLargeWibbleInit
+	lda #1
+	sta .wibt,x
+	lda .envdata+4,y
+	and #%00001111
+	sta .envDataP4_1,x
+	lda .envdata+4,y
+	lsr
+	lsr
+	lsr
+	lsr
+	sta .envDataP4_2,x
+	lda .envdata+5,y
+	and #%00001111
+	sta .envDataP5_1,x
+	lda .envdata+5,y
+	lsr
+	lsr
+	lsr
+	lsr
+	sta .envDataP5_2,x
+.skipLargeWibbleInit
+	jmp .realNotePlayRet
+
+
+.drumbit
+	lda .vols,x
+	and #%01111111
+	beq .snare
+	cmp #2
+	beq .tomtom
+	bcc .bass
+	lda #128
+	sta .wvft+7
+	jmp .tomtombit
+.tomtom
+	lda #64
+	sta .wvft+7
+	jmp .tomtombit
+.snare
+	ldy .fxfv,x
+	cpy #6
+	bcc .sn1
+	lda #3
+	sta .fxfv,x
+	tay
+.sn1
+	lda #0
+	sta .ntlo,x
+	sta .pwlo,x
+	lda .hin,y
+	sta .nthi,x
+	lda .wvf,y
+	sta .core,x
+	inc .fxfv,x
+	jmp .gsret
+
+.bass
+	ldy .fxfv,x
+	cpy #10
+	bne .sn2
+	lda #9
+	sta .fxfv,x
+	tay
+.sn2
+	lda #0
+	sta .ntlo,x
+	sta .pwlo,x
+	lda .hinb,y
+	sta .nthi,x
+	lda .wvfb,y
+	sta .core,x
+	inc .fxfv,x
+	jmp .gsret
+
+.endfm
+	jmp .pulse
+
+; Frequency modulation
+.smallWibTab !by 0,0,0,1,1,1,1,1,0,0,0
+.fmbit
+	lda .vols,x
+	cmp #$ff
+	bne .largerWibble
+; If .fxfv,x =
+; 0,1,2,8,9,10		.downwib
+; otherwise up wibble
+.smallwib
+	ldy .fxfv,x
+	lda .smallWibTab,y
+	beq .downwib
+	lda .ntlo,x
+	clc
+	adc #4
+	sta .ntlo,x
+	bcc .endwib
+	inc .nthi,x
+	jmp .endwib
+.downwib
+	cpy #10
+	bcc .noreset
+	lda #0
+	sta .fxfv,x
+.noreset
+	lda .ntlo,x
+	sec
+	sbc #4
+	sta .ntlo,x
+	bcs .endwib
+	dec .nthi,x
+.endwib
+	inc .fxfv,x
+	jmp .pulse
+
+.largerWibble
+	ldy .largeWibbleEnable,x
+	beq .endfm
+
+	; On a new note .wibt is primed to be 1
+	dec .wibt,x
+	bne .endfm
+	; Take the .vols and reset the time for the large wibble
+	sec
+	sbc #$90
+	sta .wibt,x
+
+
+	lda .wibf,x
+	beq .down
+.up
+	lda .envDataP4_1,x
+	cmp .fxfv,x
+	bne .pntone1
+	lda #0
+	sta .fxfv,x
+	lda .wibf,x
+	eor #1
+	sta .wibf,x
+	jmp .down
+.pntone1
+	lda .envDataP4_2,x
+	clc
+	adc .ltnt,x
+	sta .ltnt,x
+	tay
+	lda .lonote,y
+	sta .ntlo,x
+	lda .hinote,y
+	sta .nthi,x
+	inc .fxfv,x
+	jmp .pulse
+.down
+	lda .envDataP5_1,x
+	cmp .fxfv,x
+	bne .pntone2
+	lda #0
+	sta .fxfv,x
+	lda .wibf,x
+	eor #1
+	sta .wibf,x
+	jmp .up
+.pntone2
+	lda .ltnt,x
+	sec
+	sbc .envDataP5_2,x
+	sta .ltnt,x
+	tay
+	lda .lonote,y
+	sta .ntlo,x
+	lda .hinote,y
+	sta .nthi,x
+	inc .fxfv,x
+	jmp .pulse
+
+
+; Note glide handling
+.glidesub
+	lda .doubleNoteDurationLo,x
+	and #1
+	beq .noglide
+.glidesub2
+	lda .glno,x
+	beq .noglide
+	lda .glti,x
+	beq .glident
+	dec .glti,x
+	jmp .gsret
+.glident
+	lda .glno,x
+	clc
+	adc .ltnt,x
+; After the glide has been applied check for negative notes or notes that go over 96 and clamp to 0 and 96
+; This fixes lots of bleeps that can be heard in some tracks
+	bpl .notNeg
+	; Turn off the glide when we don't need to use it any more
+	lda #0
+	sta .glno,x
+	jmp .nowrap
+.notNeg
+	cmp #96
+	bcc .nowrap
+	; Turn off the glide when we don't need to use it any more
+	lda #0
+	sta .glno,x
+	lda #95
+.nowrap
+	sta .ltnt,x
+	tay
+	lda .lonote,y
+	sta .ntlo,x
+	lda .hinote,y
+	sta .nthi,x
+.noglide
+	jmp .gsret
+.tomtombit
+	ldy .fxfv,x
+	cpy #8
+	bcc .sn1tz
+	lda #3
+	sta .fxfv,x
+.sn1tz
+	ldy .ltnt,x
+.tt1
+	cpy #4
+.tt2
+	bcc .sn1t
+	dey
+	dey
+	tya
+	sta .ltnt,x
+.sn1t
+	lda #0
+	sta .pwlo,x
+	lda #8
+	sta .pwhi,x
+	lda .hinote,y
+	sta .nthi,x
+	lda .lonote,y
+	sta .ntlo,x
+	ldy .fxfv,x
+	lda .wvft,y
+	sta .core,x
+	bpl .nochanget
+	lda .hint,y
+	sta .nthi,x
+.nochanget
+	inc .fxfv,x
+	jmp .gsret
+
+; Pulse waveform handling
+.pulse
+	lda .pwhit,x
+	beq .endpulse
+	cmp #%10000
+	bne .uppz
+.uppzz
+	lda .pwlo,x
+	clc
+	adc .pwhic,x
+	sta .pwlo,x
+	bcc .endpulse
+	inc .pwhi,x
+	jmp .glidesub
+.uppz
+	cmp #%100000
+	bne .uppordop
+.dopzz
+	lda .pwlo,x
+	sec
+	sbc .pwhic,x
+	sta .pwlo,x
+	bcs .endpulse
+	dec .pwhi,x
+.endpulse
+	jmp .glidesub
+.uppordop
+	lda .pcnt,x
+	sec
+	adc .pdel,x
+	sta .pcnt,x
+	bmi .dopzz			; .pwhic opt
+	jmp .uppzz
+}
+
+!ifdef MusicPlayerCodeEnd { } else {
+MusicPlayerCodeEnd = *
+}

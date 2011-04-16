@@ -1,0 +1,160 @@
+;Music editor for the C64
+;Converted from the original 6510+ assembler source code
+!source "../stdlib/stdlib.a"
+!to "MusicEditor.prg", cbm
+!sal
+!sl "MusicEditor.map"
+!svl "MusicEditor.lbl"
+!cpu 6510
+!ct pet
+
+; TODO
+
+; Various hard coded variables that need to be tidied
+menubuffer1=$0800
+menubuffer2=$0900
+winbuffer1 =$8c00
+winbuffer2 =$8d00
+subtext=$8e00
+
+track1 =$4600	; The start of the music data in memory. Must be aligned on $100 bytes.
+track2 =$4700
+track3 =$4800
+envdata=$4900	; Also called FX table data
+maxBlocks = $40
+loblock =$4a00
+hiblock =loblock + maxBlocks
+blocks =$4b00
+
+backupFXTableSpace = $c100
+
+
+!source "../stdlib/BASICEntry900.a"
+
+; This eventually gets overwritten by the menu buffer
+*=BASICEntry
+	lda #ProcessorPortDefault
+	jsr InitialiseMachine
+	jsr InitKeyboard
+	lda #0
+	sta VIC2SpriteDoubleWidth
+	sta VIC2SpriteDoubleHeight
+	sta VIC2SpritePriority
+	sta VIC2SpriteMulticolour
+	; Copy the screen from one part of memory to be in the RAM underneath the VIC/SID/ROMs
+	; Each of these screens were originally saved from data at $4000-47ff and edited by ScreenEdit.a
+	lda #$d0
+	ldx #<screen1
+	ldy #>screen1
+	jsr MoveScreen
+	lda #$d8
+	ldx #<screen2
+	ldy #>screen2
+	jsr MoveScreen
+	lda #$e0
+	ldx #<screen3
+	ldy #>screen3
+	jsr MoveScreen
+	lda #$e8
+	ldx #<screen4
+	ldy #>screen4
+	jsr MoveScreen
+	lda #$f0
+	ldx #<screen5
+	ldy #>screen5
+	jsr MoveScreen
+
+	; Jump to main
+	jmp MainStart
+
+; A = Start high address of the destination to store
+; X = lo source
+; Y = hi source
+MoveScreen
+!zn {
+	; Setup the self modifying addresses from the input
+	sta toAddr+2
+	clc
+	adc #8
+	sta toChk+1
+	txa
+	sta fromAddr+1
+	tya
+	sta fromAddr+2
+
+	; Turn off interrupts, VIC and chargen to enable RAM underneath
+	sei
+	lda #$2f
+	sta ZPProcessorPortDDR
+	lda #$34
+	sta ZPProcessorPort
+
+	; Start the copying until we reach the programmed end
+loop1
+	ldx #0
+loop2
+fromAddr
+	lda $4000,x				; Self modifying
+toAddr
+	sta VIC2Sprite0X,x				; Self modifying
+	inx
+	bne loop2
+	inc toAddr+2
+	inc fromAddr+2
+	lda toAddr+2
+toChk
+	cmp #$d8				; Self modifying
+	bne loop1
+
+	; Enable interupts and normal VIC
+	lda #$2f
+	sta ZPProcessorPortDDR
+	lda #$37
+	sta ZPProcessorPort
+	cli
+	rts
+}
+
+*=$0a00
+!source "MainScreen.a"
+!source "TrackEdit.a"
+!source "Storage.a"
+!source "BlockEdit.a"
+!source "Directory.a"
+!source "GetKey.a"
+!source "../stdlib/Initialise.a"
+
+; MPi: TODO: Should really use MusicPlayerCodeToDataOffset offset from track1 to work out these three positions below.
+; Must be here at this location
+*=$3e00
+!source "MusicPlayerIRQ.a"
+
+; Must be here at this location
+; Must be aligned to $100 bytes
+*=$3f00
+RealMusicPlayerStart
+trcn = MusicPlayerTrackPos
+!source "MusicPlayer.a"
+
+; This file must be included after the real entry point for the music player code as the first time around the entry points are calculated as labels.
+; Must be aligned to $100 bytes
+*=$3700
+RelocMusicPlayerStart
+!source "MusicPlayer.a"
+
+; Needed to get sensible envelope values in the default options
+; It also allows a bit of music to be loaded as default to test the product if the jsr clearall is commented out.
+*= track1
+!bin "114MUSDATA.bin"
+
+; Some spare memory after the default music data is loaded. These screens get moved up into higher memory at load time.
+screen1
+!bin "screen1.bin"
+screen2
+!bin "screen2.bin"
+screen3
+!bin "screen3.bin"
+screen4
+!bin "screen4.bin"
+screen5
+!bin "screen5.bin"

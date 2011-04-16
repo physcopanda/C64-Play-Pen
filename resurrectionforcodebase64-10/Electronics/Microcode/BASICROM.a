@@ -1,0 +1,109 @@
+!source "../../C64/stdlib/stdlib.a"
+!to "../BASICROM.bin", plain
+!sl "BASICROM.map"
+!cpu 6510
+!ct raw
+
+*=$a000
+	inc $0060
+
+	lda $0010
+	sta $0020
+
+	lda $0011
+	sta $0021
+
+	lda $0012
+	sta $0022
+
+	lda $0013
+	sta $0023
+
+	lda $0014
+	sta $0024
+
+	jsr CompareMemoryAndAbortIfFailed
+
+	jsr TestJmpIndAddr
+	; If the indirect jump worked then this memory location should contain what we expect
+	lda $00f8
+	cmp #%01010101
+	bne .abort
+
+	inc $0060
+	rts
+
+CompareMemoryAndAbortIfFailed
+	lda $0020
+	cmp #'H'
+	bne .abort
+
+	lda $0021
+	cmp #'e'
+	bne .abort
+
+	lda $0022
+	cmp #'l'
+	bne .abort
+
+	lda $0023
+	cmp #'l'
+	bne .abort
+
+	lda $0024
+	cmp #'o'
+	bne .abort
+	rts
+
+.abort
+	!by 2 ; HALT
+
+
+*=$a100
+.inner
+	inc $0060
+	ldx #0
+	txa
+	sta $0010
+	sta $0011
+	sta $0012
+	sta $0013
+	sta $0014
+	inc $0060
+
+	ldy #1
+	tya
+	sta $0020
+	sta $0021
+	sta $0022
+	sta $0023
+	sta $0024
+	inc $0060
+
+	ldx #2
+	txa
+	sta $0080
+	sta $0081
+	sta $0082
+	sta $0083
+	sta $0084
+	inc $0060
+	rts
+
+; Unaligned to check the lo/hi loads properly
+*=$a211
+.jmpTab
+	!by <function1 , >function1
+TestJmpIndAddr
+	lda #%10101010
+	sta $00f8
+	jmp (.jmpTab)
+	rts	; Should never be executed
+
+function1
+	lda #%01010101
+	sta $00f8
+	rts
+
+*=$bfff
+	!by 0

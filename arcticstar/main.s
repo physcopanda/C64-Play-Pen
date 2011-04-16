@@ -33,6 +33,11 @@ start:
 	
 	jsr $FF8A	;Restore Vectors
 	
+	; 38 column mode
+	lda #%1110111
+	and SCROLX
+	sta SCROLX
+	
 	; setup screen
 	lda #BLACK
 	sta BGRCOL
@@ -46,6 +51,9 @@ start:
 	jsr map_chrs
 	
 	jsr init_mothership
+	
+	; init sprites
+	jsr init_sprites
 	
 	; get level number, and use it to index the level colours
 	lda level
@@ -87,7 +95,7 @@ start:
 			lda #8
 			:
 			sta (ptr1),y
-			lda #WHITE
+			lda stars_color,x
 			sta (ptr2),y
 			iny
 			cpy #FIELD_SIZE_X
@@ -142,6 +150,10 @@ start:
 	sta tmp1
 	jmp :---
 	:
+	
+	; backup the stars our mothership overlays so we can make the stars
+	; not be overwritten!
+	jsr mothership_backup_stars
 	
 	; draw a mothership!
 	;jsr draw_mothership
@@ -285,10 +297,15 @@ end_mframe:
 	lda mothership_pos
 	cmp #64
 	bcs :+
-		clc
-		;lda #128
-		;bit frame
-		;beq :+
+		jsr fix_stars
+		; fix row 2?
+		;lda mothership_pos
+		;cmp #8
+		;bcc jump_fixrow2
+		;	sbc #8
+		;	jsr fix_stars
+		;jump_fixrow2:
+		
 		lda mothership_advance_timer
 		cmp #16
 		bne :+
@@ -350,7 +367,7 @@ current_col:
 	.byte 0
 	
 ; raster code
-
+; raster for line ZERO
 raster0:	; sky raster
 	inc VICIRQ ; acknowledge irq
 	jsr game_raster_loop ; does nothing yet!
@@ -374,22 +391,6 @@ raster0:	; sky raster
 	
 	jmp $ea31		;call next interrupt
 
-raster1:	; init raster
-  	inc VICIRQ ; acknowledge irq
-	.ifdef DEBUG
-		lda #LGREEN
-		sta EXTCOL
-	.endif
-	
-	lda #BLACK
-  	sta BGRCOL
-	
-	jsr chrset1
-	
-	init_raster raster2, #RASTER2_POS
-	
-	jmp $ea31		;call next interrupt
-	
 raster_start_solarflash:
 	inc VICIRQ ; acknowledge irq
 	ldx solarflash_pos
@@ -402,19 +403,36 @@ raster_end_solarflash:
 	inc VICIRQ ; acknowledge irq
 	lda #BLACK
 	sta BGRCOL
+	lda end_solarflash
+	cmp #RASTER1_POS
+	bne :+
+		jsr roll_solarflash
+		jmp raster1_
+	:
 	jsr roll_solarflash
 	init_raster raster1, #RASTER1_POS
 	jmp $ea31		;call next interrupt
 	
-raster2:	; banner init raster
+; raster for 1st half of landscape
+raster1:	; init raster
   	inc VICIRQ ; acknowledge irq
+raster1_:	; jumping in point
+	.ifdef DEBUG
+		lda #LGREEN
+		sta EXTCOL
+	.endif
 	
-  	lda landscape_cols+1
+	lda #BLACK
   	sta BGRCOL
-	init_raster raster3, #RASTER3_POS
-	jmp $ea31		;call next interrupt	
 	
-raster3:	; banner init raster
+	jsr chrset1
+	lda landscape_cols+1
+  	sta BGRCOL
+	init_raster raster2, #RASTER2_POS	
+	jmp $ea31		;call next interrupt
+
+; raster for 2nd half of landscape
+raster2:	; banner init raster
   	inc VICIRQ ; acknowledge irq
 	
 	.ifdef DEBUG
@@ -622,9 +640,105 @@ map_chrs:
 	
 game_loop:
 	rts
-
+	
 game_raster_loop:
+	jsr sortSprites
+	jsr drawSprites
 	rts
+	
+	
+test_sprites:
+	; draw sprites
+
+	; get frame for ship 1
+	ldx player_foo_sprite_seq_pos
+	lda player_foo_sprite_seq,x
+	bne :+
+		ldx #0
+		stx player_foo_sprite_seq_pos
+		lda player_foo_sprite_seq
+	:
+	sta VIC_SPRITES1
+	lda frame
+	asl
+	asl
+	asl
+	cmp #128
+	bne :+
+		inc player_foo_sprite_seq_pos
+	:
+	
+	; move the player for fun!
+	ldy #0
+	lda player_foo_sprite_seq,x
+	cmp #(112+12)
+	bne :+
+		dec player_x
+		lda #2
+		sec
+		jmp end_player_move
+	:
+	cmp #(112+13)
+	bne :+
+		; bounce the y pos a little
+		lda frame
+		asl
+		asl
+		asl
+		asl
+		asl
+		cmp #128
+		jmp end_player_move
+	:
+	inc player_x
+	lda #2
+	sec
+	end_player_move:
+	
+	; colour sprite
+	lda #CYAN
+	sta SPRITE_COLOUR
+	
+	; make coords absolute to screen
+	; y coord
+	tya
+	adc player_y
+	sta SPRITE_POS+1
+	
+	; x coord
+	lda player_x
+	sta SPRITE_POS
+	
+	; shadow
+	
+	lda #(112+27) 	; get frame for ship 1
+	sta VIC_SPRITES1+1
+	
+	; colour sprite
+	lda #DGREY
+	sta SPRITE_COLOUR+1
+	
+	; make coords absolute to screen
+	; y coord
+	lda player_y
+	clc
+	adc #20
+	sta SPRITE_POS+3
+	
+	; x coord
+	lda player_x
+	sta SPRITE_POS+2
+	
+	rts
+player_foo_sprite_seq:
+	.byte 112+13,112+12,112+13,112+14,0
+player_foo_sprite_seq_pos:
+	.byte 0
+player_x:
+	.byte 75
+player_y:
+	.byte 210
+	
 	
 ; routine to clear the screen
 clear:
@@ -726,7 +840,7 @@ solarflash_pos:
 solarflash_width:
 	.byte 2
 solarflash:
-	.byte 145,142,140,137,133,128,122,115,107,98,88,77,65,52,35
+	.byte 147,142,140,137,133,128,122,115,107,98,88,77,65,52,35
 
 solarflash_colour:
 	.byte YELLOW
@@ -828,6 +942,38 @@ draw_mothership:
 	pla
 	sec
 	sbc #55
+	inx
+	cpx #8
+	bne :-
+	rts
+
+mothership_backup_stars:
+	ldx #0
+	:
+	clc
+	lda PAGE_MEM1 + MOTHERSHIP_LOC,x
+	sta mothership_stars_behind,x
+	adc #8
+	lda PAGE_MEM1 + MOTHERSHIP_LOC + 40,x
+	sta mothership_stars_behind+8,x
+	adc #8
+	lda PAGE_MEM1 + MOTHERSHIP_LOC + 80,x
+	sta mothership_stars_behind+16,x
+	adc #8
+	lda PAGE_MEM1 + MOTHERSHIP_LOC + 120,x
+	sta mothership_stars_behind+24,x
+	adc #8
+	lda PAGE_MEM1 + MOTHERSHIP_LOC + 160,x
+	sta mothership_stars_behind+32,x
+	adc #8
+	lda PAGE_MEM1 + MOTHERSHIP_LOC + 200,x
+	sta mothership_stars_behind+40,x
+	adc #8
+	lda PAGE_MEM1 + MOTHERSHIP_LOC + 240,x
+	sta mothership_stars_behind+48,x
+	adc #8
+	lda PAGE_MEM1 + MOTHERSHIP_LOC + 280,x
+	sta mothership_stars_behind+56,x
 	inx
 	cpx #8
 	bne :-
@@ -958,17 +1104,93 @@ draw_mothership_row:
 	cpy #8
 	bne :-
 	rts	
-
+fix_stars_range:
+	.byte 0,0
+fix_stars:
+	sta tmp1
+	lda #56
+	sec
+	sbc tmp1
+	bpl :+
+		lda #0
+	:
+	sta fix_stars_range
+	tax
+	clc
+	adc #8
+	sta fix_stars_range+1
+		
+	; preserve the current row of stars
+	; into mothership chrs 0 -> 7
+	:
+	lda mothership_stars_behind,x
+	cmp #8
+	beq :+++
+	clc
+	asl
+	asl
+	asl
+	adc #<CHR_LANDSCAPE
+	sta ptr2
+	lda #>CHR_LANDSCAPE
+	adc #0
+	sta ptr2+1
+	
+	txa
+	clc
+	asl
+	asl
+	pha
+	adc #<(CHR_MOTHERSHIP+96*8)
+	sta ptr1
+	lda #>(CHR_MOTHERSHIP+96*8)
+	adc #0
+	sta ptr1+1
+	clc
+	pla
+	adc ptr1
+	sta ptr1
+	lda ptr1+1
+	adc #0
+	sta ptr1+1
+	
+	ldy #0
+	; copy 1 chr
+	:
+	lda (ptr1),y
+	bne :+
+	ora (ptr2),y
+	:
+	sta (ptr1),y
+	iny
+	cpy #8
+	bcc :--
+	:
+	inx
+	cpx fix_stars_range+1
+	bcc :----
+	end_sptrs:
+	lda #BLACK
+	sta EXTCOL
+	rts	
+	
+.include "sub_sprite.s"
+	
+; dta segment
 level:
-	.byte 4
+	.byte 1
+mode_player:
+	.byte DEAD
 landscape_cols:
 	.byte DBLUE
 	.byte LBLUE
 level_colours:
 	.byte DBLUE, LBLUE, RED, LRED, DGREEN, LGREEN, DGREY, LGREY, BROWN, ORANGE
+stars_color:
+	.byte DGREY,DGREY,GREY,GREY,GREY,LGREY,LGREY,LGREY,WHITE,WHITE
 mothership_colour:
-	;.byte RED,LRED,WHITE,LRED,LRED,RED,BROWN,DGREY
-	.byte ORANGE,YELLOW,WHITE,YELLOW,YELLOW,ORANGE,BROWN,DGREY
+	.byte RED,LRED,WHITE,LRED,LRED,RED,BROWN,DGREY
+	;.byte ORANGE,YELLOW,WHITE,YELLOW,YELLOW,ORANGE,BROWN,DGREY
 	;.byte DGREEN,LGREEN,WHITE,LGREEN,LGREEN,DGREEN,DGREEN,DGREY
 	;.byte DBLUE,LBLUE,WHITE,LBLUE,LBLUE,DBLUE,DBLUE,DGREY
 	;.byte GREY,LGREY,WHITE,LGREY,LGREY,GREY,GREY,DGREY
@@ -978,7 +1200,8 @@ mothership_frame:
 	.byte 0
 mothership_advance_timer:
 	.byte 0
-.include "inc/speedcode.s"
+mothership_stars_behind:
+	.res 64,0
 
 .segment "BUFFER"
 	BUFFER:
@@ -991,10 +1214,11 @@ mothership_advance_timer:
 	CHR_MOTHERSHIP:
 	.incbin "inc/tile.arcticstar"
 .segment "SCREEN"
-	
+	.res 1024,0
 .segment "SPRITES"
-	;.incbin "inc/sprites.spr"
-	
+	.incbin "inc/arcticstar.spr"
+.segment "SPEEDCODE"
+	.include "inc/speedcode.s"
 ;.segment "MUSIC"
 	;.incbin "inc/silent night.prg",2
 	;.incbin "inc/hyperspace.prg",2

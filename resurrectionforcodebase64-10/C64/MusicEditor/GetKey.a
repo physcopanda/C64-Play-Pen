@@ -1,0 +1,17 @@
+!zn {
+getkey
+	; Gets a key from the keyboard buffer
+	jsr $f142
+	cmp #0
+	bne .something
+	; Fake a really silly key
+	lda #$ff
+.something
+	rts
+
+InitKeyboard
+	jsr CLRCHN
+	lda #0
+	sta ZPKeyBufferLength
+	rts
+}
