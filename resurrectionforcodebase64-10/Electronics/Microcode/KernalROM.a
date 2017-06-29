@@ -1,0 +1,947 @@
+!source "../../C64/stdlib/stdlib.a"
+!to "../KernalROM.bin", plain
+!sl "KernalROM.map"
+!cpu 6510
+!ct raw
+
+; This tests various instructions and compares their output with expected output. If the tests fail the CPU executes HALT which triggers a hardware breakpoint in the simulator.
+
+*=$e000
+.l1
+	inc $0040
+	; Test branches first since branches are used in the LCD init
+	jsr TestBranchPageBoundary1
+	jsr TestBranchPageBoundary2
+	jsr LCDDisplayInit
+	jsr DisplayMessage
+	inc $0040
+	jsr TestArithmatic
+	jsr TestShifts
+	jsr TestCMP
+	jsr TestBIT
+	jsr TestStack
+	jsr TestLogicOperations
+	jsr ZeroPageTest
+	jsr TestINXDEX
+	jsr WriteHello
+	jsr CompareMemory1AndAbortIfFailed
+	jsr $a000	; Does some simple absolute copying and memory testing
+	jsr DoAddrIndirectTest
+	jsr CompareMemory2AndAbortIfFailed
+	jsr TestCmpAddrIndirect
+
+	; Wipes some of the memory with a known pattern
+	jsr $a100
+
+	; Next line on the LCD
+	lda #LCDCommand_SetDDRAMAddress + $40
+	jsr LCDOutCommand
+	lda #<.message
+	ldx #>.message
+	jsr LCDDisplayMessage
+	; Inc this location to show how many times around the test has run
+	inc $00ff
+	inc VIC2BorderColour
+	jsr TestIRQOperatingLevel
+	cli	; Allow interrupts from now one once the first pass has been done
+	jmp .l1
+
+.message !tx "Done pass!"
+	!by 0
+abort2
+	!by 2	; HALT
+Start
+	; Some simple screen setup for the real C64 so I can see the screen in zero page.
+	; We deliberately use absolute addessing here because the LDA/STA instructions were the first supported.
+
+	; We deliberately do not do these stores now because when using the C64Boot project we don't want to enable the real ROMs
+	; Maybe if the ROMs are used in the real C64 we will enable these stores, however the default C64 seems to start in ProcessorPortDefault mode.
+;	lda #$e7
+;	sta $0001
+;	lda #$2f
+;	sta $0000
+	; Setup the C64 VIC to display lower case characters with the screen at $0000
+	lda #6
+	sta VIC2MemorySetup
+	lda #$c8
+	sta VIC2ScreenControlH
+	lda #$1b
+	sta VIC2ScreenControlV
+
+	lda #1
+	sta COLOURRAM
+	lda #2
+	sta COLOURRAM+1
+	lda #3
+	sta COLOURRAM+2
+
+	; Stop all interrupt sources from the CIA
+	lda #$7f
+	sta CIA1InterruptControl
+	sta CIA2InterruptControl
+	; MPi: TODO: Must setup the CIA to generate an IRQ regularly
+
+	; First test ST flags being updated, CMP and BNE. This should never trigger the HALT
+	lda #0
+	bne abort2
+	bne abort2	; Double one to test the flags don't change between branches
+	cmp #1
+	bne .skip
+	bne .skip	; Double one to test the flags don't change between branches
+	!by 2	; HALT
+.skip
+	lda #1
+	beq abort2
+	beq abort2	; Double one to test the flags don't change between branches
+	lda #0
+	beq .skip2
+	beq .skip2	; Double one to test the flags don't change between branches
+	!by 2	; HALT
+.skip2
+	sta $00ff
+	; Setup the stack pointer, even though my CPU hardware sets this the real 6502 doesn't seem to.
+	ldx #$ff
+	txs
+	cld
+
+	jmp .l1
+
+WriteHello
+	lda #'H'
+	sta $0010
+
+	lda #'e'
+	sta $0011
+
+	lda #'l'
+	sta $0012
+	sta $0013
+
+	lda #'o'
+	sta $0014
+	rts
+
+Minimal
+	jsr LCDDisplayInit
+	lda #'M'
+	jsr LCDOutData
+	lda #'i'
+	jsr LCDOutData
+	lda #'n'
+	jsr LCDOutData
+
+	; Wait for a while before displaying the next text
+	ldx #100
+.mw1
+	jsr LCDWait
+	dex
+	bne .mw1
+
+
+	lda #'M'
+	jsr LCDOutData
+	lda #'a'
+	jsr LCDOutData
+	lda #'x'
+	jsr LCDOutData
+
+	ldx #100
+.mw2
+	jsr LCDWait
+	dex
+	bne .mw2
+
+	jmp Minimal
+
+DoAddrIndirectTest
+	ldx #4
+	lda $0010,x
+	sta $0084
+
+	lda $0010
+	sta $0080
+
+	ldx #3
+	lda $0010,x
+	sta $0080,x
+
+	; Tests page boundary calculations
+	ldx #$12
+	lda $ffff,x
+	sta $006f,x
+	ldx #$c2
+	lda $ff50,x
+	sta $ffc0,x
+
+	; Test ZP wraparound with memory pattern in 0/1
+	lda $01
+	cmp $01	; Test this zp cmp
+	beq .oabort41
+abort6
+	!by 2	; HALT
+.oabort41
+
+	; Test the results
+	lda $11
+	cmp $81
+	bne abort6
+
+	lda $12
+	cmp $82
+	bne abort6
+
+	ldx #$11
+	lda $f0,x
+	cmp $01
+	bne abort6
+
+	; Test more complex indirect modes
+	lda #$10
+	sta $02
+	lda #$02
+	sta $03
+	lda #%11010100
+	sta $0210
+	lda #%11010101
+	sta $0220
+	lda #%10010101
+	sta $0308
+	ldx #0
+	ldy #0
+	lda ($02,x)
+	cmp #%11010100
+	bne abort6
+	lda #%11010100
+	cmp ($02,x)
+	bne abort6
+
+	ldx #2
+	lda ($00,x)
+	cmp #%11010100
+	bne abort4
+
+	lda #0
+	ora ($00,x)
+	cmp #%11010100
+	bne abort4
+
+	lda #%11010100
+	eor ($00,x)
+	; The result should be 0
+	bne abort4
+	cmp #0
+	bne abort4
+
+	lda #%10111011
+	and ($00,x)
+	cmp #%10010000
+	bne abort4
+
+	lda #%11111111
+	and ($00,x)
+	cmp #%11010100
+	bne abort4
+
+	lda ($02),y
+	cmp #%11010100
+	bne abort4
+	ldy #$10
+	lda ($02),y
+	cmp #%11010101
+	bne abort4
+	ldy #$f8
+	lda ($02),y
+	cmp #%10010101
+	bne abort4
+	lda #%10010101
+	cmp ($02),y
+	bne abort4
+
+	lda #%11110000
+	and ($02),y
+	cmp #%10010000
+	bne abort4
+
+	lda #%01100000
+	ora ($02),y
+	cmp #%11110101
+	bne abort4
+
+	rts
+
+abort4
+	!by 2	; HALT
+
+CompareMemory1AndAbortIfFailed
+	lda $0010
+	cmp #'H'
+	bne abort
+
+	lda $0011
+	cmp #'e'
+	bne abort
+
+	lda $0012
+	cmp #'l'
+	bne abort
+
+	lda $0013
+	cmp #'l'
+	bne abort
+
+	lda $0014
+	cmp #'o'
+	bne abort
+
+	; Test inc with known calculations
+	lda #0
+	sta $00fe
+	inc $00fe
+	lda $00fe
+	cmp #1
+	bne abort
+
+	lda #$f
+	sta $00fe
+	inc $00fe
+	lda $00fe
+	cmp #$10
+	bne abort
+	inc $00fe
+	lda $00fe
+	cmp #$11
+	bne abort
+
+	lda #$ff
+	sta $00fe
+	inc $00fe
+	bne abort
+	lda $00fe
+	cmp #0
+	bne abort
+	rts
+
+
+CompareMemory2AndAbortIfFailed
+	lda $0080
+	cmp #'H'
+	bne abort
+
+	lda $0081
+	cmp #'e'
+	bne abort
+
+	lda $0082
+	cmp #'l'
+	bne abort
+
+	lda $0083
+	cmp #'l'
+	bne abort
+
+	lda $0084
+	cmp #'o'
+	bne abort
+	rts
+
+abort
+	!by 2	; HALT
+
+TestINXDEX
+	ldx #0
+	bne abort
+	inx
+	cpx #1
+	bne abort
+	dex
+	bne abort
+
+	ldy #0
+	bne abort
+	iny
+	cpy #1
+	bne abort
+	dey
+	bne abort
+	rts
+
+TestCmpAddrIndirect
+!zn {
+	; First do some copy loops
+	ldx #5
+.l1
+	lda $000f,x
+	sta $008f,x
+	dex
+	bne .l1
+
+	ldy #5
+.l2
+	lda $000f,y
+	sta $009f,y
+	dey
+	bne .l2
+
+	ldx #5
+	ldy #5
+	; Now test the indirect compares
+.l3
+	lda $000f,x
+	cmp $008f,x
+	bne abort
+	cmp $008f,y
+	bne abort
+	cmp $009f,x
+	bne abort
+	cmp $009f,y
+	bne abort
+	dex
+	dey
+	bne .l3
+
+	rts
+}
+
+
+ZeroPageTest
+!zn {
+	lda #1
+	sta $11
+	ldx #2
+	stx $12
+	ldy #3
+	sty $13
+	; Load back again in reverse order
+	lda $13
+	ldx $12
+	ldy $11
+	; Tests
+	cmp #3
+	bne abort
+	cpx #2
+	bne abort
+	cpy #1
+	bne abort
+	rts
+
+
+abort3
+	!by 2	; HALT
+TestLogicOperations
+!zn {
+	lda #%10100101
+	and #%11000011
+	beq abort3
+	cmp #%10000001
+	bne abort3
+
+	lda #%10100101
+	and #%01000010
+	bne abort3
+	cmp #%00000000
+	bne abort3
+
+	lda #%10100101
+	ora #%11000011
+	beq abort3
+	cmp #%11100111
+	bne abort3
+	rts
+}
+}
+
+TestStack
+	lda #0
+	pha
+	lda #1
+	pha
+	lda #2
+	pha
+	lda #3
+	pha
+
+	lda #0
+
+	pla
+	beq abort3
+	cmp #3
+	bne abort3
+	pla
+	beq abort3
+	cmp #2
+	bne abort3
+	pla
+	beq abort3
+	cmp #1
+	bne abort3
+	pla
+	bne abort3
+	cmp #0
+	bne abort3
+	rts
+
+TestBIT
+!zn {
+	; Also tests the lesser used branch flags
+	lda #$ff
+	sta $02
+	lda #0
+	bit $02
+	bne abort3
+	lda #1
+	bit $02
+	beq abort3
+	lda #128
+	bit $02
+	beq abort3
+	lda #$ff
+	bit $02
+	beq abort3
+	bvc abort3
+	bpl abort3
+
+	lda #$0f
+	sta $02
+	lda #0
+	bit $02
+	bne abort3
+	bvs abort3
+	bmi abort3
+
+	; Now with the branches being taken
+	lda #$ff
+	sta $02
+	lda #0
+	bit $02
+	beq .s1
+abort5
+	!by 2	; HALT
+.s1
+	bvs .s2
+	!by 2	; HALT
+.s2
+	bmi .s3
+	!by 2	; HALT
+.s3
+
+	lda #$0f
+	sta $02
+	lda #0
+	bit $02
+	beq .s4
+	!by 2	; HALT
+.s4
+	bvc .s5
+	!by 2	; HALT
+.s5
+	bpl .s6
+	!by 2	; HALT
+.s6
+
+
+	; Also tests some other bit patterns
+	lda #$f0
+	sta $0002
+	lda #%10100101
+	bit $0002
+	beq abort5
+	bvc abort5
+	bpl abort5
+
+	lda #$0f
+	sta $0002
+	lda #%00000101
+	bit $0002
+	beq abort5
+	bvs abort5
+	bmi abort5
+
+	rts
+}
+
+TestCMP
+!zn {
+	lda #0
+	cmp #0
+	bne .abort
+	bcc .abort
+	bmi .abort
+
+	lda #$ff
+	cmp #$ff
+	bne .abort
+	bcc .abort
+	bmi .abort
+
+	lda #%10010101
+	cmp #%10010101
+	bne .abort
+	bcc .abort
+	bmi .abort
+
+	lda #0
+	cmp #4
+	beq .abort
+	bcs .abort
+	bpl .abort
+
+	lda #4
+	cmp #0
+	beq .abort
+	bcc .abort
+	bmi .abort
+
+	lda #-1
+	cmp #5
+	beq .abort
+	bcc .abort
+	bpl .abort
+
+	rts
+.abort
+	!by 2	; HALT
+}
+
+
+!zn {
+.abortL
+	!by 2	; HALT
+TestArithmatic
+	clv
+
+	; V should be clear for all of these
+	; Addition
+	lda #0
+	clc
+	adc #4
+	bcs .abortL
+	bmi .abortL
+	bvs .abortL
+	cmp #4
+	bne .abortL
+	bvs .abortL
+
+	lda #4
+	clc
+	adc #12
+	bcs .abortL
+	bmi .abortL
+	bvs .abortL
+	cmp #16
+	bne .abortL
+	bvs .abortL
+
+	lda #192
+	clc
+	adc #10
+	bcs .abortL
+	bpl .abortL
+	bvs .abortL
+	cmp #202
+	bne .abortL
+	bvs .abortL
+
+	lda #192
+	clc
+	adc #100
+	bcc .abort
+	bvs .abort
+	bmi .abort
+	cmp #36
+	bne .abort
+	bvs .abort
+
+	lda #100
+	clc
+	adc #-100
+	bmi .abort
+	bcc .abort
+	bvs .abort
+	cmp #0
+	bne .abort
+	bvs .abort
+
+
+	; Subtraction
+	lda #4
+	sec
+	sbc #1
+	bcc .abort
+	bmi .abort
+	bvs .abort
+	cmp #3
+	bne .abort
+	bvs .abort
+
+	lda #1
+	sec
+	sbc #4
+	bpl .abort
+	bcs .abort
+	bvs .abort
+	cmp #$fd
+	bne .abort
+	bvs .abort
+
+	lda #-100
+	sec
+	sbc #-100
+	bmi .abort
+	bcc .abort
+	bvs .abort
+	cmp #0
+	bne .abort
+	bvs .abort
+
+
+	; Add produces overflow
+	lda #100
+	clc
+	adc #100
+	bpl .abort
+	bcs .abort
+	bvc .abort
+	cmp #$c8
+	bne .abort
+	bvc .abort
+
+	; Sub produces overflow
+	lda #-100
+	sec
+	sbc #100
+	bmi .abort
+	bcc .abort
+	bvc .abort
+	cmp #$38
+	bne .abort
+	bvc .abort
+
+
+	rts
+.abort
+	!by 2	; HALT
+
+DisplayMessage
+	; Chars
+	lda #' '
+	jsr LCDOutData
+	lda #'M'
+	jsr LCDOutData
+	lda #'y'
+	jsr LCDOutData
+	lda #'6'
+	jsr LCDOutData
+	lda #'5'
+	jsr LCDOutData
+	lda #'0'
+	jsr LCDOutData
+	lda #'2'
+	jsr LCDOutData
+	lda #'C'
+	jsr LCDOutData
+	lda #'P'
+	jsr LCDOutData
+	lda #'U'
+	jmp LCDOutData		; Note implied RTS
+}
+
+!source "LCD.a"
+
+!zn {
+.abort
+	!by 2	; HALT
+
+TestShifts
+	lda #$01
+	lsr
+	bne .abort
+	bcc .abort
+	cmp #0
+	bne .abort
+
+	lda #$80
+	asl
+	bne .abort
+	bcc .abort
+	cmp #0
+	bne .abort
+
+	lda #$40
+	asl
+	beq .abort
+	bcs .abort
+	cmp #$80
+	bne .abort
+
+	lda #$40
+	lsr
+	beq .abort
+	bcs .abort
+	cmp #$20
+	bne .abort
+
+	; Rotates
+	; Without carry
+	clc
+	lda #$01
+	ror
+	bne .abort
+	bcc .abort
+	cmp #0
+	bne .abort
+
+	clc
+	lda #$14
+	ror
+	beq .abort
+	bcs .abort
+	cmp #$a
+	bne .abort
+
+	clc
+	lda #$80
+	rol
+	bne .abort
+	bcc .abort
+	cmp #0
+	bne .abort
+
+	clc
+	lda #$14
+	rol
+	beq .abort
+	bcs .abort
+	cmp #$28
+	bne .abort
+
+	; With carry
+	sec
+	lda #$01
+	ror
+	beq .abort
+	bcc .abort
+	cmp #$80
+	bne .abort
+
+	sec
+	lda #$14
+	ror
+	beq .abort
+	bcs .abort
+	cmp #$8a
+	bne .abort
+
+	sec
+	lda #$80
+	rol
+	beq .abort2
+	bcc .abort2
+	cmp #$1
+	bne .abort2
+
+	sec
+	lda #$14
+	rol
+	beq .abort2
+	bcs .abort2
+	cmp #$29
+	bne .abort2
+
+	sec
+	lda #$18
+	rol
+	beq .abort2
+	bcs .abort2
+	cmp #$31
+	bne .abort2
+
+	rts
+
+.abort2
+	!by 2	; HALT
+
+TestIRQOperatingLevel
+	; Check operation of SEI and CLI
+	sei
+	lda #1	; Unset the Z and C flag
+	clc
+	php
+	pla
+	sta $10
+	and #4
+	cmp #4
+	bne .abort2
+	cli
+	lda #1	; Unset the Z and C flag
+	clc
+	php
+	pla
+	sta $11
+	and #4
+	cmp #0
+	bne .abort2
+	rts
+}
+
+!zn {
+IRQ
+	pha
+	; Do this now to get a correct representation of the ST register without it being changed by tya or a later pla
+	php
+	pla
+	sta $0400
+
+	; C64 - Ack the generated IRQ
+	lda CIA1InterruptControl
+
+	tya
+	pha
+	txa
+	pha
+
+	inc $0401
+	inc VIC2ScreenColour
+	inx
+	iny
+
+	pla
+	tax
+	pla
+	tay
+	pla
+	rti
+}
+
+*=$fde0
+!zn
+.ret
+	nop
+	rts
+*=$fe10
+TestBranchPageBoundary2
+	lda #1
+	bne .ret
+	!by 2	; HALT
+
+*=$fec0
+!zn
+.ret
+	nop
+	rts
+*=$fef0
+TestBranchPageBoundary1
+	lda #1
+	bne .ret
+	!by 2	; HALT
+
+*=$fffa
+; NMI vector at $fffa/$fffb
+!by 0,0
+
+; Reset vector at $fffc/$fffd
+; A choice between the full test designed to start on a real C64 with screen access and the minimal instructions needed to get a message displayed on the LCD
+!by <Start, >Start
+;!by <Minimal, >Minimal
+
+; IRQ/BRK vector at $fffe/$ffff
+!by <IRQ,>IRQ

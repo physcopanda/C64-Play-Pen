@@ -1,0 +1,592 @@
+; An example of a multithreading kernel ROM replacement for use with the TTL processor example or C64 hardware/emulation.
+; Any comment that begins with "C64" is specific to the C64 hardware and is largely ignored by the TTL processor.
+; Any comment that begins with "TTL" is specific to the TTL processor and is largely ignored by the C64.
+
+!source "../../C64/stdlib/stdlib.a"
+!to "../BootROM.bin", plain
+!sl "BootROM.map"
+;Save labels as a different name to allow the VICE automatic label load to get the right label set.
+;!svl "BootROM.lbl"
+!svl "C64Boot.lbl"
+!cpu 6510
+!ct raw
+
+Threading_NumThreads	= $10
+Threading_CurrentThread	= $11
+Threading_StackLo		= $12
+Threading_StackHi		= $13
+Threading_ThreadSP		= $14
+
+Clock_Ticks				= $20
+Clock_Seconds			= $21
+Clock_Minutes			= $22
+
+!zn {
+*=$e000
+Start
+	; Some initialisation
+	sei
+	cld
+	ldx #$ff
+	txs
+
+	; Initialise the CPU debug output LEDs to all off except the first one.
+	; The signals the CPU managed to at least start executing the boot code.
+	lda #%0001
+	sta MemoryMappedIOArea2
+
+	; Some really quick memory checks that output to the debug LEDs
+	; The debug LEDs are mapped to MemoryMappedIOArea2 on the V1.1 hardware
+	lda #%10101010
+	sta $0040
+	lda #0
+	lda $0040
+	cmp #%10101010
+	bne *	; Endless loop
+	lda #%0011
+	sta MemoryMappedIOArea2
+
+	lda #%01010101
+	sta $0140
+	lda #0
+	lda $0140
+	cmp #%01010101
+	bne *	; Endless loop
+	lda #%0111
+	sta MemoryMappedIOArea2
+
+	; Test the stack works
+	lda #%11110000
+	pha
+	lda #0
+	pla
+	cmp #%11110000
+	bne *	; Endless loop
+	lda #%1111
+	sta MemoryMappedIOArea2
+
+	; Now we init the machine properly
+	jsr InitMachine
+
+	jsr LCDDisplayInit
+
+	; Test the graphic LCD display
+	lda #%10000000
+	jsr GLCDOutCommand
+
+	lda #%00000000
+	jsr GLCDOutData
+	jsr GLCDOutData
+	lda #%01000010
+	jsr GLCDOutCommand
+
+	lda #16
+	jsr GLCDOutData
+	lda #$0
+	jsr GLCDOutData
+	lda #%01000011
+	jsr GLCDOutCommand
+
+	lda #%00000000
+	jsr GLCDOutData
+	lda #$17
+	jsr GLCDOutData
+	lda #%01000000
+	jsr GLCDOutCommand
+
+	lda #16
+	jsr GLCDOutData
+	lda #$0
+	jsr GLCDOutData
+	lda #%01000001
+	jsr GLCDOutCommand
+
+	; Display enable
+	lda #%10011100
+	jsr GLCDOutCommand
+
+	; Init end
+
+	; Draw chars
+
+	; Init the address
+	lda #%00000000
+	jsr GLCDOutData
+	lda #$17
+	jsr GLCDOutData
+	lda #%00100100
+	jsr GLCDOutCommand
+
+	lda #$24
+	jsr GLCDOutData
+	lda #%11000000
+	jsr GLCDOutCommand
+	lda #$25
+	jsr GLCDOutData
+	lda #%11000000
+	jsr GLCDOutCommand
+	lda #$2e
+	jsr GLCDOutData
+	lda #%11000000
+	jsr GLCDOutCommand
+
+	; Demonstrate drawing graphics
+	lda #0
+	jsr GLCDOutData
+	lda #0
+	jsr GLCDOutData
+	lda #%00100100
+	jsr GLCDOutCommand
+
+	ldx #10
+.wl1
+	txa
+	jsr GLCDOutData
+	lda #%11000000
+	jsr GLCDOutCommand
+	dex
+	bne .wl1
+
+	; Hardware scroll of the text area
+	lda #1
+	jsr GLCDOutData
+	lda #$17
+	jsr GLCDOutData
+	lda #%01000000
+	jsr GLCDOutCommand
+
+	lda #2
+	jsr GLCDOutData
+	lda #$17
+	jsr GLCDOutData
+	lda #%01000000
+	jsr GLCDOutCommand
+
+	lda #1
+	jsr GLCDOutData
+	lda #$17
+	jsr GLCDOutData
+	lda #%01000000
+	jsr GLCDOutCommand
+
+	lda #0
+	jsr GLCDOutData
+	lda #$17
+	jsr GLCDOutData
+	lda #%01000000
+	jsr GLCDOutCommand
+
+	; Demonstrate setting a custom graphic
+	; Address 8 is actually character 1
+	lda #LCDCommand_SetCGRAMAddress+8
+	jsr LCDOutCommand
+	lda #%00001
+	jsr LCDOutData
+	lda #%00011
+	jsr LCDOutData
+	lda #%00111
+	jsr LCDOutData
+	lda #%01111
+	jsr LCDOutData
+	lda #%11111
+	jsr LCDOutData
+	lda #%01111
+	jsr LCDOutData
+	lda #%00111
+	jsr LCDOutData
+	lda #%00011
+	jsr LCDOutData
+	lda #LCDCommand_ClearDisplay
+	jsr LCDOutCommand
+	; Output character 1 to demonstrate the custom graphic
+	lda #$01
+	jsr LCDOutData
+
+	lda #<.RAMCheckMessage
+	ldx #>.RAMCheckMessage
+	jsr LCDDisplayMessage
+
+	; This RAM check stops at $d000 so it can be run all the time since this code is located at $e000 onwards.
+	jsr CheckRAM
+
+	jsr ThreadingInit
+
+	lda #0
+	sta Clock_Ticks
+	sta Clock_Seconds
+	sta Clock_Minutes
+
+	jsr LCDDisplayInit
+	lda #<.StartingMessage
+	ldx #>.StartingMessage
+	jsr LCDDisplayMessage
+
+	; Ack any interrupts that might have happened from the CIAs
+	lda CIA1InterruptControl
+	; Now allow the IRQs to start
+	cli
+
+	jmp Thread1
+
+.RAMCheckMessage
+	!tx "Checking RAM..."
+	!by 0
+
+.StartingMessage
+	!tx "Starting..."
+	!by 0
+}
+
+; C64 - This routine initialises all the C64 hardware, it is executed but ignored by the TTL processor.
+!zn {
+InitMachine
+	; Clear all CIA to known state
+	lda #$7f
+	sta CIA1InterruptControl
+	sta CIA2InterruptControl
+	lda #0
+	sta VIC2InteruptControl
+	sta CIA1TimerAControl
+	sta CIA1TimerBControl
+	sta CIA2TimerAControl
+	sta CIA2TimerBControl
+	; Ack any interrupts that might have happened from the CIAs
+	lda CIA1InterruptControl
+	lda CIA2InterruptControl
+	; Ack any interrupts that have happened from the VIC2
+	lda #$ff
+	sta VIC2InteruptStatus
+
+	; Turn off various bits in the VIC2 and SID chips
+	lda #0
+	sta VIC2ScreenColour
+	sta VIC2BorderColour
+	sta VIC2ScreenControlV
+	sta VIC2SpriteEnable
+	sta VIC2SpriteDoubleWidth
+	sta VIC2SpriteDoubleHeight
+	sta VIC2SpritePriority
+	sta VIC2SpriteMulticolour
+	sta SIDVolumeFilter
+
+	; Setup the C64 VIC to display lower case characters with the screen at $0000
+	lda #3
+	sta CIA2PortASerialBusVICBank
+	lda #6
+	sta VIC2MemorySetup
+	lda #$c8
+	sta VIC2ScreenControlH
+	lda #$1b
+	sta VIC2ScreenControlV
+
+	; Configure a timer for the IRQ
+	lda #$10
+	sta CIA1TimerALo
+	sta CIA1TimerAHi
+	lda #%10001
+	sta CIA1TimerAControl
+	lda #%10000001
+	sta CIA1InterruptControl
+	rts
+}
+
+!zn {
+CheckRAM
+	lda #0
+	sta $fc
+	lda #2
+	sta $fd
+.checkRAMPage
+	; Next line on the LCD
+	lda #LCDCommand_SetDDRAMAddress + $40
+	jsr LCDOutCommand
+
+	; Write a test pattern
+	ldy #0
+	lda #%10101010
+	sta ($fc),y
+	lda #%01010101
+	iny
+	sta ($fc),y
+	lda #%11110000
+	ldy #$ff
+	sta ($fc),y
+	lda #%00001111
+	dey
+	sta ($fc),y
+
+	; Read the test pattern
+	ldy #0
+	lda #%10101010
+	cmp ($fc),y
+	bne .pageDead
+	lda #%01010101
+	iny
+	cmp ($fc),y
+	bne .pageDead
+	lda #%11110000
+	ldy #$ff
+	cmp ($fc),y
+	bne .pageDead
+	lda #%00001111
+	dey
+	cmp ($fc),y
+	bne .pageDead
+
+	jmp .pageOK	
+.pageDead
+	lda $fd
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	lda .hexTable,x
+	jsr LCDOutData
+	lda $fd
+	and #15
+	tax
+	lda .hexTable,x
+	jsr LCDOutData
+	lda #<.RAMPageDead
+	ldx #>.RAMPageDead
+	jsr LCDDisplayMessage
+
+.pageOK
+	inc $fd
+	lda $fd
+	; Compare with the end of usable memory, the rest of RAM we use for internal stuff.
+	cmp #$d0
+	bne .checkRAMPage
+
+	rts
+
+.hexTable !tx "0123456789abcdef"
+.RAMPageDead
+	!tx " page dead"
+	!by 0
+}
+
+!zn {
+NMIIRQ
+	rti
+}
+
+!zn {
+IRQ
+	pha
+	tya
+	pha
+	txa
+	pha
+
+	; Real time clock update, the TTL IRQ triggers at ~50Hz, the C64 IRQ triggers at a different rate so allow VICE monitor to show the different screen colour bands to aid debugging.
+	ldx #0
+	inc Clock_Ticks
+	lda Clock_Ticks
+	cmp #50
+	bcc .c1
+	stx Clock_Ticks
+	inc Clock_Seconds
+	lda Clock_Seconds
+	cmp #60
+	bcc .c1
+	stx Clock_Seconds
+	inc Clock_Minutes
+.c1
+
+	; C64 - Ack the generated IRQ
+	lda CIA1InterruptControl
+
+	; Remember this SP
+	tsx
+	ldy Threading_CurrentThread
+	stx Threading_ThreadSP,y
+
+	; Calc storage for the stack data
+	tya
+	clc
+	; Thread stack data starts at $400
+	adc #4
+	sta Threading_StackHi
+	lda #0
+	sta Threading_StackLo
+
+	; Copy the current stack out
+	tsx
+	txa
+	tay
+	; Full descending stack so skip the start
+	iny
+.l1
+	lda $0100,y
+	sta (Threading_StackLo),y
+	iny
+	bne .l1
+
+	; Swap to next thread
+	ldy Threading_CurrentThread
+	iny
+	cpy Threading_NumThreads
+	bne .s1
+	ldy #0
+.s1
+	sty Threading_CurrentThread
+
+	; Calc storage for the stack data
+	tya
+	clc
+	; Thread stack data starts at $400
+	adc #4
+	sta Threading_StackHi
+
+	; Update the next thread context SP
+	ldx Threading_ThreadSP,y
+	txs
+	; Copy the next stack back into this context
+	txa
+	tay
+	iny ; Full descending stack so skip the start
+.l2
+	lda (Threading_StackLo),y
+	sta $0100,y
+	iny
+	bne .l2
+
+	; Return to non-IRQ operating level which happens to magically be the next thread
+	pla
+	tax
+	pla
+	tay
+	pla
+	rti
+}
+
+!zn {
+ThreadingInit
+	ldx #4
+	stx Threading_NumThreads
+	lda #0
+	sta Threading_CurrentThread
+	lda #$ff
+	sta Threading_ThreadSP
+	dex
+.l1
+	jsr .CreateBlankThread
+	dex
+	; Thread 0 is this context so we don't need to init it
+	bne .l1
+	rts
+
+; X is the thread index
+.CreateBlankThread
+	; Calculate the thread storage offset
+	txa
+	clc
+	; Thread stack data starts at $400
+	adc #4
+	sta Threading_StackHi
+	lda #0
+	sta Threading_StackLo
+	ldy #$ff
+	; Create the initial thread data
+	lda .threadStartHi-1,x
+	sta (Threading_StackLo),y
+	dey
+	lda .threadStartLo-1,x
+	sta (Threading_StackLo),y
+	dey
+	; ST
+	lda #0
+	sta (Threading_StackLo),y
+	dey
+	; A, Y, X
+	sta (Threading_StackLo),y
+	dey
+	sta (Threading_StackLo),y
+	dey
+	sta (Threading_StackLo),y
+	dey
+
+	sty Threading_ThreadSP,x
+
+	rts
+
+.threadStartLo
+	!by <Thread2,<Thread3,<Thread4
+.threadStartHi
+	!by >Thread2,>Thread3,>Thread4
+}
+
+!zn {
+Thread1
+	inc VIC2BorderColour
+	inc $0310
+	inc $0311
+	inc $0312
+	inc $0313
+
+	jsr LCDDisplayInit
+
+	lda #<.message1
+	ldx #>.message1
+	jsr LCDDisplayMessage
+
+	; Next line on the LCD
+	lda #LCDCommand_SetDDRAMAddress + $40
+	jsr LCDOutCommand
+
+	lda #<.message2
+	ldx #>.message2
+	jsr LCDDisplayMessage
+
+	jmp Thread1
+
+.message1
+	!tx "First line"
+	!by 0
+
+.message2
+	!tx "Second line"
+	!by 0
+}
+
+!zn {
+Thread2
+	inc VIC2ScreenColour
+	inc $0320
+	inc $0321
+	inc $0322
+	inc $0323
+	jmp Thread2
+}
+
+!zn {
+Thread3
+	inc $0330
+	inc $0331
+	inc $0332
+	inc $0333
+	jmp Thread3
+}
+
+!zn {
+Thread4
+	inc $0340
+	inc $0341
+	inc $0342
+	inc $0343
+	jmp Thread4
+}
+
+!source "../Microcode/LCD.a"
+
+*=$fffa
+; NMI vector at $fffa/$fffb
+!by <NMIIRQ,>NMIIRQ
+
+; Reset vector at $fffc/$fffd
+!by <Start, >Start
+
+; IRQ/BRK vector at $fffe/$ffff
+!by <IRQ,>IRQ

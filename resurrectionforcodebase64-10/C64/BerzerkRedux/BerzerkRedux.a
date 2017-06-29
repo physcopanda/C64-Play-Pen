@@ -1,0 +1,196 @@
+; Berzerk Redux
+
+; MPi: TODO:
+; *Space and nunbers in the score entry.
+; *Competition edition!
+; *Nice idea but not now - Shot chain bonus - Each robot killed without missing a shot adds a 10 points bonus up to 100 points.
+; *Add two player co-op option that has a combined score and saves scores into a different score table.
+;  Both players get to add their initials to the same entry.
+
+
+!source "../stdlib/stdlib.a"
+!to "BerzerkRedux.prg", cbm
+!sl "BerzerkRedux.map"
+;!sal
+!svl "BerzerkRedux.lbl"
+!cpu 6510
+!ct pet
+
+!source "BerzerkReduxVars.a"
+
+; Enable the following lines to show debug timings
+;NMITimings = 1
+;IRQ_DebugBorder = 1
+;GameLogicTimings = 1
+;Multiplexor_DebugBorder = 1
+;Multiplexor_DebugBorderCollision = 1
+
+!source "../IRQDisk/IRQDiskVars.a"
+IRQDisk_MachineTarget = IRQDisk_MachineTypeC64
+IRQDisk_Retries = 5
+IRQDisk_LEDFlash = 15
+;IRQDisk_UseATN = 1
+; Use this to stop the game code from trying to initialise the drive code.
+;IRQDisk_NoDriveCode = 1
+
+; Define what the multiplexor can use
+Multiplex_VarBase	= endMainRoutineZP
+Multiplex_spritepointer	= $c000 + $3f8
+Multiplex_IRQServiceRoutineLo = KERNALIRQServiceRoutineLo;
+Multiplex_IRQServiceRoutineHi = KERNALIRQServiceRoutineHi;
+; Start discarding sprites earlier with a bigger than usual gap so allow time for the IRQ at the
+; bottom of the screen with the sample NMI active.
+Multiplex_DiscardSpritesYPos = VIC2SpriteYBorderBottom-8
+Multiplex_items	= 24
+Multiplex_OverflowRasterCheck1 = 1
+Multiplex_OverflowRasterCheck2 = 1
+Multiplex_BunchingCheck = 1
+Multiplex_LogCollisions = 1
+Multiplex_LogCollisionsBackground = 1
+Multiplex_EnableEarlyOut = 1
+; This is tweaked to account for the NMI sample player eating more time and the collision update
+; taking longer than the normal IRQ update.
+Multiplex_rasterHeight = 8
+!source "../SpriteMultiplexor/SpriteMultiplexorVars.a"
+; Adjust this and in the conv.bat file to alter the game's sample rate from the original 22050Hz samples.
+SampleRateHz = 6000
+
+
+*=$400
+RealStart
+	lda #ProcessorPortAllRAMWithIO
+	jsr InitialiseMachine
+
+	; Wait around after the depack for fire to be pressed. This is for testing a clean start of
+	; the machine, screen and IRQs
+!if 0 {
+.ft1
+	lda CIA1KeyboardColumnJoystickA
+	and #%10000
+	bne .ft1
+.ft2
+	lda CIA1KeyboardColumnJoystickA
+	and #%10000
+	beq .ft2
+}
+	; Invert the first 64 chars in the character set for the title screen
+	ldx #0
+.ic1
+	lda TitleScreenChars,x
+	eor #$ff
+	sta TitleScreenChars+$400,x
+	lda TitleScreenChars+$100,x
+	eor #$ff
+	sta TitleScreenChars+$500,x
+	dex
+	bne .ic1
+
+
+	; Some sound and video initialisation
+	jsr SFXSIDInit
+	lda #0
+	sta CIA2PortASerialBusVICBank
+	jsr ClearMainScreen
+
+	; Display a disk message
+	+DisplayColourTextMiddle_AX MessageAccessingDisk , MessageAccessingDiskEnd , MainScreen + (10*40) , VIC2Colour_White
+
+	+MACROWaitForTheLastScan_A
+	jsr EnableScreen
+
+!ifdef IRQDisk_NoDriveCode { } else {
+	; Drive init
+	lda #ProcessorPortDefault
+	sta ZPProcessorPort
+
+	lda ZPCurrentFileDeviceNumber
+	jsr IRQDisk_Init
+
+	lda #ProcessorPortAllRAMWithIO
+	sta ZPProcessorPort
+}
+
+	; Try to load the hi-score using the drive code
+	lda #SaveNameEnd-SaveNameStart
+	ldx #<SaveNameStart
+	ldy #>SaveNameStart
+	jsr IRQDisk_Load
+	bcs .skipTheCheck
+	lda #1
+	sta LoadedOK
+	jsr CalculateScoreChecksum
+	cmp ScoreChecksum
+	beq .skipTheCheck
+	; Check checksum for the loaded data is different to the calculated checksum so we zero
+	; the score table since we can assume someone tampered with it.
+	ldx #(5*16)-1
+	lda #0
+.cl1
+	sta HiScore,x
+	dex
+	bpl .cl1
+.skipTheCheck
+
+	+MACROWaitForTheLastScan_A
+	lda #%1101000
+	sta VIC2ScreenControlV
+
+	jsr ClearAllSprites
+
+	jsr InitIRQs
+	jmp Mainline
+
+BossRoomStart
+!scr "about the enter the master robot room!"
+BossRoomEnd
+
+!source "TitleScreen.a"
+!source "EnterInitialsScreen.a"
+!source "GameLogic.a"
+!source "IRQs.a"
+
+!source "../stdlib/Initialise.a"
+!source "../SpriteMultiplexor/SpriteMultiplexor.a"
+
+SFXLimitVoice3 = 1
+!source "../SFX/SFX.a"
+!source "MazeRoom.a"
+!source "Rand.a"
+!source "Score.a"
+!source "ClearMisc.a"
+
+!zn
+Mainline
+	jsr DisplayTitleScreen
+
+	jsr InitGame
+	jsr GameLogic
+
+	; Hi score tests
+	+HiScoreTest 0 , .exitHiscoreTest
+	+HiScoreTest 1 , .exitHiscoreTest
+	+HiScoreTest 2 , .exitHiscoreTest
+	+HiScoreTest 3 , .exitHiscoreTest
+	+HiScoreTest 4 , .exitHiscoreTest
+
+.exitHiscoreTest
+	; Loop back to the start
+	jmp Mainline
+
+; This block of code includes the IRQ disk libs, note the !zn is here instead of in the libs.
+!zn {
+; Include the private code for each machine type
+!source "../IRQDisk/IRQDiskC64.a"
+!source "../IRQDisk/IRQDisk.a"
+!ifdef IRQDisk_NoDriveCode { } else {
+!source "../IRQDisk/stdlib1541.a"
+!source "../IRQDisk/IRQDiskDriveCode.a"
+}
+}
+
+
+SaveNameStart
+!raw "SAVE"
+SaveNameEnd
+; After the code comes the data
+!source "Data.a"

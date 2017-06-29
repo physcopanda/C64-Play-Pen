@@ -1,0 +1,274 @@
+!zn {
+TurboTapeWriteSlowHeader
+;f76a
+	lda #3			; Flag for the secondary address, i.e. make this save unrelocatable
+	sta $9e       ; Tape Error log pass 1
+	jsr $f7d0     ; Get Buffer Address
+	bcc .ret
+	lda $c2       ; Start Address for LOAD and Cassette Write
+	pha
+	lda $c1       ; Start Address for LOAD and Cassette Write
+	pha
+	lda $af       ; Tape End Address/End of Program
+	pha
+	lda $ae       ; Tape End Address/End of Program
+	pha
+	ldy #$bf
+	lda #$20
+
+;f784
+.l1
+	sta ($b2),y   ; Pointer: Start Address of Tape Buffer
+	dey
+	bne .l1
+	lda $9e       ; Tape Error log pass 1
+	sta ($b2),y   ; Pointer: Start Address of Tape Buffer
+	iny
+	lda $c1       ; Start Address for LOAD and Cassette Write
+	sta ($b2),y   ; Pointer: Start Address of Tape Buffer
+	iny
+	lda $c2       ; Start Address for LOAD and Cassette Write
+	sta ($b2),y   ; Pointer: Start Address of Tape Buffer
+	iny
+	lda $ae       ; Tape End Address/End of Program
+	sta ($b2),y   ; Pointer: Start Address of Tape Buffer
+	iny
+	lda $af       ; Tape End Address/End of Program
+	sta ($b2),y   ; Pointer: Start Address of Tape Buffer
+	iny
+	sty $9f       ; Tape Error log pass 2
+	ldy #$00
+	sty $9e       ; Tape Error log pass 1
+
+;f7a5
+.l2
+
+	ldy $9e       ; Tape Error log pass 1
+	cpy $b7       ; Number of Characters in Filename
+	beq .pass
+	lda ($bb),y   ; Pointer: Current File name Address
+	ldy $9f       ; Tape Error log pass 2
+	sta ($b2),y   ; Pointer: Start Address of Tape Buffer
+	inc $9e       ; Tape Error log pass 1
+	inc $9f       ; Tape Error log pass 2
+	bne .l2
+
+;f7a9
+.pass
+
+	; Here we put our own data into the tape header
+	ldy #endTapeHeader - tapeHeader
+.l3
+	lda tapeHeader-1,y
+	sta $0351-1,y
+	dey
+	bne .l3
+
+	; Continue with normal kernal loader
+	jsr $f7d7     ; Set Buffer Stat / End Pointers
+	lda #$69
+	sta $ab       ; RS232 Input parity/Tape temporary
+	jsr $f86b     ; Initiate Tape Write
+	tay
+	pla
+	sta $ae       ; Tape End Address/End of Program
+	pla
+	sta $af       ; Tape End Address/End of Program
+	pla
+	sta $c1       ; Start Address for LOAD and Cassette Write
+	pla
+	sta $c2       ; Start Address for LOAD and Cassette Write
+	tya
+
+.ret
+	rts
+}
+
+!zn {
+TurboTapeFileDelay
+	; Now delay for a bit to let the cassette motor spin up
+	ldx #255
+	ldy #255
+.d1
+	dex
+	bne .d1
+	dec $d020
+	inc $d020
+	dey
+	bne .d1
+	rts
+}
+
+!zn {
+TurboTapeWritePilot
+	; First we start the CIA timer at a constant rate so we can check for it and output at a constant rate.
+	; This is regardless about what other code is run during the save process resulting is a very stable data signal.
+	lda #$7f
+	sta CIA1InterruptControl
+	lda #<TapeTurboSpeed
+	sta CIA1TimerALo
+	lda #>TapeTurboSpeed
+	sta CIA1TimerAHi
+	lda #%10001
+	sta CIA1TimerAControl		; Start timer, this timer automatically restarts.
+	; Now check the timer getting triggered once first of all to avoid an overflow due to early timers being triggered
+	lda #0
+	sta CIA1InterruptControl
+	lda #1
+.tl1
+	bit CIA1InterruptControl
+	beq .tl1
+	lda #0
+	sta CIA1InterruptControl
+
+	; Now we are at the start of the timer sync so we start to save out our bytes
+
+	; We save some marker bytes first. This is so we can view what we are debugging with a known pattern.
+	; Marker bytes. We look for TapeSyncCode before accepting any bytes and then we check for TapeHeaderByteEx followed by TapeHeaderByteEx2 and the filename byte to make sure the header is really what we're expecting before progressing onto the other lo/hi byte pairs in the header
+	; First we write our pilot tones to allow for a wobbly tape motor and other various weird timings coming from the cassette.
+	; We also fill the bits just so we are sure what we might have coming from the cassette.
+	ldy #192	; Plenty of bytes
+.pilot1
+	lda #TapePilotCode1
+	jsr TurboTapeSaveByte
+	lda #TapePilotCode2
+	jsr TurboTapeSaveByte
+	dey
+	bne .pilot1
+
+	rts
+
+TurboTapeWriteStart
+	pha
+	lda #TapeSyncCode
+	jsr TurboTapeSaveByte
+	lda #TapeHeaderByteEx
+	jsr TurboTapeSaveByte
+	lda #TapeHeaderByteEx2
+	jsr TurboTapeSaveByte
+	pla
+	jsr TurboTapeSaveByte
+	; Lo hi of load address
+	txa
+	sta .sm1+1
+	jsr TurboTapeSaveByte
+	tya
+	sta .sm1+2
+	jsr TurboTapeSaveByte
+	rts
+
+TurboTapeWriteShortStart
+	lda #TapeSyncCode
+	jsr TurboTapeSaveByte
+	lda #TapeHeaderByteEx3
+	jsr TurboTapeSaveByte
+	rts
+
+
+TurboTapeWriteEnd
+	; Lo hi of end address (exclusive)
+	txa
+	sta .sm2+1
+	jsr TurboTapeSaveByte
+	tya
+	sta .sm3+1
+	jsr TurboTapeSaveByte
+	lda #0
+	sta TurboTapeSaveChecksum
+	rts
+
+TurboTapeSetEnd
+	; Lo hi of end address (exclusive)
+	stx .sm2+1
+	sty .sm3+1
+	lda #0
+	sta TurboTapeSaveChecksum
+	rts
+
+
+TurboTapeWriteData
+	; Just save some test code
+.i2
+.sm1	lda $0000
+	jsr TurboTapeSaveByte
+	inc .sm1+1
+	bne .i3
+	inc .sm2+2
+.i3
+.sm2	lda #0
+	cmp .sm1+2
+	bne .i2
+.sm3	lda #0
+	cmp .sm1+1
+	bne .i2
+	rts
+
+TurboTapeWriteLeadOut
+	; Write some leadout
+	lda #TapePilotCode1
+	jsr TurboTapeSaveByte
+	lda #TapePilotCode2
+	jsr TurboTapeSaveByte
+	rts
+}
+
+!zn {
+!macro waitMacro {
+	; Check for timing loss, i.e. we should be waiting for the timer not seeing is already triggered
+	lda #1
+	bit CIA1InterruptControl
+	beq .tl1
+.oops
+	inc VIC2BorderColour
+	jmp .oops
+.tl1
+	bit CIA1InterruptControl
+	beq .tl1
+}
+
+; Make sure the turbo tape code from here is aligned so that we get consistent write speeds no matter what is before here
+!align 255,0
+.buffer !by 0
+TurboTapeSaveChecksum !by 0
+.tempRegs !by 0,0,0
+; x,y preserved
+TurboTapeSaveByte
+	; Save
+	stx .tempRegs+1
+
+	sta .buffer
+	eor TurboTapeSaveChecksum
+	sta TurboTapeSaveChecksum
+
+	ldx #$08
+.go
+	asl .buffer
+
+	; Output a bit
+	; Carry indicates what bit to send and the wait time with the low signal will indicate a long or short pulse
+	+waitMacro
+	bcc .b0
+	+waitMacro
+.b0
+	lda #%0101			; Low signal level
+	sta ZPProcessorPort
+
+	+waitMacro
+	bcc .b1
+	+waitMacro
+.b1
+	lda #%1101			; Hi signal level
+	sta ZPProcessorPort
+
+	lda VIC2BorderColour
+	eor #5						; Better border colours with one less byte than using the clc/adc method
+	sta VIC2BorderColour
+
+	dex
+	bne .go
+
+	; And restore
+	ldx .tempRegs+1
+	rts
+
+}

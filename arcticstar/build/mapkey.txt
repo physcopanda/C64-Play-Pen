@@ -1,0 +1,11 @@
+MEMORY USAGE KEY:
+-------------
+ZEROPAGE       :	RED
+CODE           :	CYAN
+BUFFER         :	PURPLE
+CHRMAP         :	DGREEN
+SCREEN         :	DBLUE
+SPRITES        :	YELLOW
+SPEEDCODE      :	ORANGE
+INCLUDES       :	BROWN
+-------------

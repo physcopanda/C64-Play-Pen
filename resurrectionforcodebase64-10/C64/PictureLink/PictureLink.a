@@ -1,0 +1,146 @@
+;PictureLink demonstrates linking a picture with another prg
+
+!source "../stdlib/stdlib.a"
+!to "PictureLink.prg", cbm
+!sl "PictureLink.map"
+!svl "PictureLink.lbl"
+!cpu 6510
+!ct pet
+
+!if 1 {
+; Add our own SYS address to start with
+*= BASICSTART
+!byte $0c,$08,$0a,$00,$9e		; Line 10 SYS
+!convtab pet
+!tx "34816"						; Address for sys start to RealStart in text
+!byte $00,$00,$00				; This is really the end of our BASIC program
+}
+
+; Strip out the BASIC start SYS from the compressed code
+*=2062
+; +1 here because our new SYS start address is one byte longer, so we strip out the 0x78 SEI
+!bin "../BerzerkRedux/BerzerkRedux.prg",,2 + (2061-2049) + 1
+
+
+!align 255,0
+RealStart
+*=*
+	lda #ProcessorPortAllRAMWithIO
+	jsr InitialiseMachine
+
+	jsr PrintDecompressing
+
+	lda #ProcessorPortAllRAM
+	sta ZPProcessorPort
+
+	ldx #<$dc00
+	ldy #>$dc00
+	jsr RNXPCompressionDecompress_InitStore
+	ldx #<LogoScreen
+	ldy #>LogoScreen
+	jsr RNXPCompressionDecompress
+
+	ldx #<$e000
+	ldy #>$e000
+	jsr RNXPCompressionDecompress_InitStore
+	ldx #<LogoBitmap
+	ldy #>LogoBitmap
+	jsr RNXPCompressionDecompress
+
+	lda #ProcessorPortAllRAMWithIO
+	sta ZPProcessorPort
+
+	jsr WaitRaster
+	ldx #0
+	stx VIC2ScreenControlV
+
+	ldx #<COLOURRAM
+	ldy #>COLOURRAM
+	jsr RNXPCompressionDecompress_InitStore
+	ldx #<LogoColour
+	ldy #>LogoColour
+	jsr RNXPCompressionDecompress
+
+	lda #0
+	sta CIA2PortASerialBusVICBank
+	lda #%01111000
+	sta VIC2MemorySetup
+	lda #%11000
+	sta VIC2ScreenControlH
+
+	jsr WaitRaster
+
+	lda #%111011
+	sta VIC2ScreenControlV
+
+.l2
+	lda CIA1KeyboardColumnJoystickA
+	and #31
+	cmp #31
+	bne .nextPart
+	lda CIA1KeyboardRowsJoystickB
+	and #31
+	cmp #31
+	beq .l2
+.nextPart
+
+	jsr PrintDecompressing
+
+	; IRQs already off, jump to the decompressor while skipping the 0x78 SEI
+	jmp 2061 + 1
+
+PrintDecompressing
+	; Stop the IRQs, then blank the screen colour, then display a message in an unused porition
+	; of extended zero page.
+	jsr WaitRaster
+	ldx #0
+	stx VIC2ScreenControlV
+	lda #VIC2Colour_Black
+.cl1
+	sta COLOURRAM ,x
+	sta COLOURRAM + $100 ,x
+	sta COLOURRAM + $200 ,x
+	sta COLOURRAM + $2e8 ,x
+	dex
+	bne .cl1
+
+	+DisplayColourTextMiddle_AX .decompressing , .decompressingEnd , $0000 + (14*40) , VIC2Colour_White
+
+	lda #3
+	sta CIA2PortASerialBusVICBank
+	lda #4
+	sta VIC2MemorySetup
+	lda #%01000
+	sta VIC2ScreenControlH
+	lda #%11011
+	sta VIC2ScreenControlV
+	rts
+
+WaitRaster
+	lda #255
+.wr1
+	cmp VIC2Raster
+	bne .wr1
+	rts
+
+.decompressing !scr "decompressing..."
+.decompressingEnd
+
+!source "../stdlib/Initialise.a"
+
+LogoBitmap
+!bin "PicBitmap",,2
+LogoColour
+!bin "PicColour",,2
+LogoScreen
+!bin "PicScreen",,2
+
+!macro RNXPCompressionIncBorder_A {}
+!source "../Decompression/Decompression.a"
+!source "../Decompression/DecompressionP2.a"
+
+!source "../Decompression/DecompressionVars.a"
+CompressionStartOfHistoryBufferTables = *
+
+* = * + $40
+CompressedData

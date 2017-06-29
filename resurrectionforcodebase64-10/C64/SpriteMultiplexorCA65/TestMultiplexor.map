@@ -1,0 +1,21 @@
+Modules list:
+-------------
+TestMultiplexor.o:
+    CODE              Offs = 000000   Size = 001201
+
+
+Segment list:
+-------------
+Name                  Start   End     Size
+--------------------------------------------
+CODE                  000800  001A00  001201
+
+
+Exports list:
+-------------
+
+
+
+Imports list:
+-------------
+

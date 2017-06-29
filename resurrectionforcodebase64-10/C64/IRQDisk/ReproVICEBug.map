@@ -1,0 +1,8 @@
+READST  =$ffb7
+SECOND  =$ff93
+CIOUT  =$ffa8
+CINT  =$ff81
+SCREENRAM  =$400
+LISTEN  =$ffb1
+UNLSN  =$ffae
+IRQDisk_InitDrive  =$86a; ?

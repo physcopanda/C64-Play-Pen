@@ -1,0 +1,22 @@
+!macro TurboTapeSaveChunk .start , .endExclusive , .reUse {
+!if .reUse {
+	lda #<.start
+	sta .sm1+1
+	lda #>.start
+	sta .sm1+2
+}
+.re1
+.sm1	lda .start
+	jsr TurboTapeSaveByte
+	inc .sm1+1
+	bne .s1
+	inc .sm1+2
+	inc VIC2BorderColour
+.s1
+	lda .sm1+2
+	cmp #>.endExclusive
+	bne .re1
+	lda .sm1+1
+	cmp #<.endExclusive
+	bne .re1
+}

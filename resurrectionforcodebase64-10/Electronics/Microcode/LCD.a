@@ -1,0 +1,123 @@
+; Driver for the HD44780 controller chip.
+!zn {
+LCDCommand_ClearDisplay					= %00000001
+
+LCDCommand_Home							= %00000010
+
+LCDCommand_EntryModeSet					= %00000100
+LCDCommand_EntryModeSet_ShiftDisplay	= %00000001
+LCDCommand_EntryModeSet_Incr			= %00000010
+
+LCDCommand_DisplayControl				= %00001000
+LCDCommand_DisplayControl_BlinkOn		= %00000001
+LCDCommand_DisplayControl_CursorOn		= %00000010
+LCDCommand_DisplayControl_DisplayOn		= %00000100
+
+LCDCommand_CursorOrDisplayShift			= %00010000
+
+LCDCommand_FunctionSet					= %00100000
+LCDCommand_FunctionSet_5x10Font			= %00000100
+LCDCommand_FunctionSet_2Lines			= %00001000
+LCDCommand_FunctionSet_8Bit				= %00010000
+
+LCDCommand_SetCGRAMAddress				= %01000000
+
+LCDCommand_SetDDRAMAddress				= %10000000
+
+
+
+LCDDisplayInit
+	; Init
+	lda #LCDCommand_FunctionSet + LCDCommand_FunctionSet_8Bit + LCDCommand_FunctionSet_2Lines
+	jsr LCDOutCommand
+	jsr LCDOutCommand	; The manufacturer recommends sending the same initial command twice to make sure it really gets it.
+
+	lda #LCDCommand_EntryModeSet + LCDCommand_EntryModeSet_Incr
+	jsr LCDOutCommand
+
+	lda #LCDCommand_DisplayControl + LCDCommand_DisplayControl_DisplayOn + LCDCommand_DisplayControl_CursorOn + LCDCommand_DisplayControl_BlinkOn
+	jsr LCDOutCommand
+
+	lda #LCDCommand_ClearDisplay
+	jsr LCDOutCommand
+	rts
+
+LCDOutCommand
+	; MSN
+	sta MemoryMappedIOArea1+4
+	jmp LCDWait
+
+LCDWait
+	pha
+	txa
+	pha
+
+	; Read the busy signal from the top bit of the LCD display
+	; This uses a feature of the V1.1 hardware design
+.l2
+	lda MemoryMappedIOArea1+4
+	and #128
+	bne .l2
+
+; If running at 1MHz with the old V1.0 hardware we need this wait
+;	ldx #200
+;.l2
+;	dex
+;	bne .l2
+
+	pla
+	tax
+	pla
+	rts
+
+LCDOutData
+	sta MemoryMappedIOArea1+4+1
+	jmp LCDWait
+
+
+LCDDisplayMessage
+	sta $02
+	stx $03
+	pha
+	tya
+	pha
+
+	ldy #0
+.l1
+	lda ($02),y
+	beq .dmEnd
+	jsr LCDOutData
+	iny
+	bne .l1
+
+.dmEnd
+	pla
+	tay
+	pla
+	rts
+}
+
+
+!zn
+GLCDWait
+	pha
+	; Read LCD status registers
+.nr1
+	lda MemoryMappedIOArea1+8+1
+	and #%11
+	cmp #%11
+	; Not ready? Loop
+	bne .nr1
+	pla
+	rts
+!zn
+GLCDOutCommand
+	jsr GLCDWait
+	sta MemoryMappedIOArea1+8+1
+	rts
+
+!zn
+GLCDOutData
+	jsr GLCDWait
+	sta MemoryMappedIOArea1+8
+	rts

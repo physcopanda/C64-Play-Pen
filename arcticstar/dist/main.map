@@ -1,0 +1,51 @@
+Modules list:
+-------------
+main.o:
+    CODE              Offs = 000000   Size = 001149
+    BUFFER            Offs = 000000   Size = 001000
+    CHRMAP            Offs = 000000   Size = 001800
+    SCREEN            Offs = 000000   Size = 000400
+    SPRITES           Offs = 000000   Size = 000F40
+    SPEEDCODE         Offs = 000000   Size = 001802
+    INCLUDES          Offs = 000000   Size = 003C70
+C:\Program Files\cc65-snapshot\lib/c64.lib(zeropage.o):
+    ZEROPAGE          Offs = 000000   Size = 00001A
+
+
+Segment list:
+-------------
+Name                  Start   End     Size
+--------------------------------------------
+ZEROPAGE              000000  000019  00001A
+CODE                  000800  001948  001149
+BUFFER                003000  003FFF  001000
+CHRMAP                004000  0057FF  001800
+SCREEN                005800  005BFF  000400
+SPRITES               005C00  006B3F  000F40
+SPEEDCODE             006C00  008401  001802
+INCLUDES              009000  00CC6F  003C70
+
+
+Exports list:
+-------------
+ptr1                      000008 RLZ    ptr2                      00000A RLZ    
+tmp1                      000010 RLZ    tmp2                      000011 RLZ    
+tmp3                      000012 RLZ    tmp4                      000013 RLZ    
+
+
+
+Imports list:
+-------------
+ptr1 (zeropage.o):
+    main.o                    def/definitions.s(34)
+ptr2 (zeropage.o):
+    main.o                    main.s(8)
+tmp1 (zeropage.o):
+    main.o                    main.s(9)
+tmp2 (zeropage.o):
+    main.o                    main.s(9)
+tmp3 (zeropage.o):
+    main.o                    main.s(9)
+tmp4 (zeropage.o):
+    main.o                    main.s(9)
+

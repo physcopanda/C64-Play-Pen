@@ -1,0 +1,16 @@
+MEMORY {
+	ZP:	  	start = $0000, size = $ff;
+	RAM: 	start = $0800, size = $f800;
+}
+
+SEGMENTS {
+	ZEROPAGE:	load = ZP, type = zp;
+	CODE:   	load = RAM, type = rw, start = $800;
+	BUFFER:		load = RAM, type = rw, start = $3000;
+	CHRMAP:		load = RAM, type = ro, start = $4000;
+	SCREEN:		load = RAM, type = rw, start = $5800;
+	SPRITES:	load = RAM, type = ro, start = $5C00;
+	SPEEDCODE:	load = RAM, type = rw, start = $6C00;
+	#MUSIC:		load = RAM, type = rw, start = $7000;
+	INCLUDES:	load = RAM, type = rw, start = $9000;
+}
