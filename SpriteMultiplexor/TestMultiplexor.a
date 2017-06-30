@@ -365,25 +365,25 @@ move
   ldx #0
   ldy #1
 
-  +MSetSprite  0 , 136 , 50		, $c0
-  +MSetSprite  1 , 160 , 50		, $c1
-  +MSetSprite  2 , 136 , 111	, $c2
-  +MSetSprite  3 , 160 , 161	, $c3
+  +MSetSprite  0 , 136 , 50   , $de
+  +MSetSprite  1 , 160 , 50   , $df
+  +MSetSprite  2 , 136 , 71   , $e3
+  +MSetSprite  3 , 160 , 71   , $e4
 
-  +MSetSprite  4 , 100 , 120	, $c4
-  +MSetSprite  5 , 105 , 121	, $c5
-  +MSetSprite  6 , 210 , 122	, $c6
-  +MSetSprite  7 , 215 , 123	, $c7
+  +MSetSprite  4 , 148 , 50  , $ee
+  +MSetSprite  5 , 148 , 71  , $ef
+  +MSetSprite  6 , 148 , 50  , $f6
+  +MSetSprite  7 , 148 , 50  , $f7
 
-  +MSetSprite  8 , 136 , 71		, $c8
-  +MSetSprite  9 , 160 , 71		, $c9
-  +MSetSprite 10 , 60 , 182		, $ca
-  +MSetSprite 11 , 65 , 183		, $cb
+  +MSetSprite  8 , 220, 100, $c0
+  +MSetSprite  9 , 220, 100, $c0
+  +MSetSprite 10 , 60 , 182   , $ca
+  +MSetSprite 11 , 65 , 183   , $cb
 
-  +MSetSprite 12 , 255 , 230	, $cc
-  +MSetSprite 13 , 260 , 231	, $cd
-  +MSetSprite 14 , 310 , 232	, $ce
-  +MSetSprite 15 , 315 , 233	, $cf
+  +MSetSprite 12 , 255 , 230  , $cc
+  +MSetSprite 13 , 260 , 231  , $cd
+  +MSetSprite 14 , 310 , 232  , $ce
+  +MSetSprite 15 , 315 , 233  , $cf
 
 !if 1 {
   lda counterx1
