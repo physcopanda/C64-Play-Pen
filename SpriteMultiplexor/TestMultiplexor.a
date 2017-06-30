@@ -53,7 +53,6 @@ Multiplex_EnableEarlyOut = 1
 ; Uncomment this to test the bunching check code
 ;Multiplex_BunchingCheck = 1
 
-
 ; Unit test zero page variables
 counterx1 = Multiplex_endVars+$00
 counterx2 = Multiplex_endVars+$01
@@ -74,83 +73,7 @@ yoffset = Multiplex_endVars+$09
 
 ; Some sprite data high up in memory
 *=$3e00
-!by 255,255,255,255,255,255,255,255
-!by 255,255,255,255,255,255,255,255
-!by 255,255,255,255,255,255,255,255
-!by 255,255,255,255,255,255,255,255
-!by 255,255,255,255,255,255,255,255
-!by 255,255,255,255,255,255,255,255
-!by 255,255,255,255,255,255,255,255
-!by 255,255,255,255,255,255,255,255
-
-+SpriteLine %........................
-+SpriteLine %.#......................
-+SpriteLine %.##.....................
-+SpriteLine %.###....................
-+SpriteLine %.####...................
-+SpriteLine %.#####..................
-+SpriteLine %.######.................
-+SpriteLine %.#######................
-+SpriteLine %.########...............
-+SpriteLine %.#########..............
-+SpriteLine %.########...............
-+SpriteLine %.######.................
-+SpriteLine %.######.................
-+SpriteLine %.##..##.................
-+SpriteLine %.#....##................
-+SpriteLine %......##................
-+SpriteLine %.......##...............
-+SpriteLine %.......##...............
-+SpriteLine %........##..............
-+SpriteLine %........##..............
-+SpriteLine %........................
-!byte 0
-
-+SpriteLine %########################
-+SpriteLine %########################
-+SpriteLine %###..................###
-+SpriteLine %###..................###
-+SpriteLine %###..................###
-+SpriteLine %###..................###
-+SpriteLine %###..................###
-+SpriteLine %###..................###
-+SpriteLine %###.......###........###
-+SpriteLine %###......#####.......###
-+SpriteLine %###......#####.......###
-+SpriteLine %###......#####.......###
-+SpriteLine %###.......###........###
-+SpriteLine %###..................###
-+SpriteLine %###..................###
-+SpriteLine %###..................###
-+SpriteLine %###..................###
-+SpriteLine %###..................###
-+SpriteLine %###..................###
-+SpriteLine %########################
-+SpriteLine %########################
-!byte 0
-
-+SpriteLine %########################
-+SpriteLine %########################
-+SpriteLine %####.......##.......####
-+SpriteLine %###.#......##......#.###
-+SpriteLine %###..#.....##.....#..###
-+SpriteLine %###...#....##....#...###
-+SpriteLine %###....#...##...#....###
-+SpriteLine %###.....#..##..#.....###
-+SpriteLine %###......######......###
-+SpriteLine %###......#####.......###
-+SpriteLine %########################
-+SpriteLine %###......#####.......###
-+SpriteLine %###......#####.......###
-+SpriteLine %###.....#..#..#......###
-+SpriteLine %###....#...#...#.....###
-+SpriteLine %###...#....#....#....###
-+SpriteLine %###..#.....#.....#...###
-+SpriteLine %###.#......#......#..###
-+SpriteLine %####.......#.......#.###
-+SpriteLine %########################
-+SpriteLine %########################
-!byte 0
+!source "penguin_adventure_sprites.a"
 
 *=BASICEntry
 jmp Start
@@ -167,6 +90,10 @@ Start
   sta VIC2SpriteDoubleHeight
   sta VIC2SpritePriority
   sta VIC2SpriteMulticolour
+  
+  ; background colour
+  lda #VIC2Colour_Cyan
+  sta VIC2ScreenColour
 
   lda #<Multiplex_maininter
   sta KERNALIRQServiceRoutineLo
@@ -438,18 +365,18 @@ move
   ldx #0
   ldy #1
 
-  +MSetSprite  0 , 50 , 50
-  +MSetSprite  1 , 55 , 51
-  +MSetSprite  2 , 160 , 52
-  +MSetSprite  3 , 165 , 53
+  +MSetSprite  0 , 136 , 50
+  +MSetSprite  1 , 160 , 50
+  +MSetSprite  2 , 136 , 111
+  +MSetSprite  3 , 160 , 161
 
   +MSetSprite  4 , 100 , 120
   +MSetSprite  5 , 105 , 121
   +MSetSprite  6 , 210 , 122
   +MSetSprite  7 , 215 , 123
 
-  +MSetSprite  8 , 150 , 180
-  +MSetSprite  9 , 155 , 181
+  +MSetSprite  8 , 136 , 71
+  +MSetSprite  9 , 160 , 71
   +MSetSprite 10 , 60 , 182
   +MSetSprite 11 , 65 , 183
 
@@ -486,14 +413,6 @@ move
   adc counterx1
   tax
   lda sinx,x
-  lsr
-  lsr
-  lsr
-  lsr
-  asl
-  asl
- asl
-asl 
   sta Multiplex_XPosLo,y
   lda sinxhi,x
   sta Multiplex_XPosHi,y

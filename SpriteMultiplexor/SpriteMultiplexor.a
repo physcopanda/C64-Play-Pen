@@ -234,7 +234,6 @@ Multiplex_intNextSpr0Reset = *
   lda Multiplex_SpriteFrame,y
   .Multiplex_LBLISFP9 = *
   sta Multiplex_spritepointer + .spriteIndexReal
-
   lda Multiplex_Colour,y
   sta VIC2Sprite0Colour + .spriteIndexReal
 
@@ -854,8 +853,8 @@ Multiplex_SetDiscardPosition
 ; These default Y values show the minimal amount of sprite packing, with 1 y pos increment per sprite, that is available.
 ; Note with Multiplexor_DebugBorder this shows eight sprites updated every IRQ band
 Multiplex_YPos
-  !by $32,$33,$34,$35,$36,$37,$38,$39
-  !by $51,$52,$53,$54,$55,$56,$57,$58
+  !by $94,$94,$f9,$2f,$a9,$37,$38,$39
+  !by $a9,$a9,$53,$54,$55,$56,$57,$58
   !by $70,$71,$72,$73,$74,$75,$76,$77
   !by $8f,$90,$91,$92,$93,$94,$95,$96
   !by $ae,$af,$b0,$b1,$b2,$b3,$b4,$b5
@@ -863,28 +862,28 @@ Multiplex_YPos
 
 
 Multiplex_XPosLo
-  !by $20,$38,$50,$68,$80,$98,$b0,$c8
-  !by $28,$40,$58,$70,$88,$a0,$b8,$d0
+  !by $88,$a0,$b8,$d0,$80,$98,$b0,$c8
+  !by $88,$a0,$58,$70,$88,$a0,$b8,$d0
   !by $30,$48,$60,$78,$90,$a8,$c0,$d8
   !by $38,$50,$68,$80,$98,$b0,$c8,$e0
   !by $40,$58,$70,$88,$a0,$b8,$d0,$e8
   !by $48,$60,$78,$90,$a8,$c0,$d8,$f0
 
 Multiplex_XPosHi
-  !by $01,$01,$00,$00,$00,$00,$00,$00
-  !by $01,$01,$00,$00,$00,$00,$00,$00
+  !by $00,$00,$00,$00,$00,$00,$00,$00
+  !by $00,$00,$00,$00,$00,$00,$00,$00
   !by $01,$00,$00,$00,$00,$00,$00,$00
   !by $01,$00,$00,$00,$00,$00,$00,$00
   !by $01,$00,$00,$00,$00,$00,$00,$00
   !by $00,$00,$00,$00,$00,$00,$00,$00
 
 Multiplex_Colour
-  !by $01,$02,$03,$04,$05,$06,$07,$08
-  !by $09,$0a,$0b,$0c,$0d,$0e,$0f,$01
-  !by $01,$02,$03,$04,$05,$06,$07,$08
-  !by $09,$0a,$0b,$0c,$0d,$0e,$0f,$01
-  !by $01,$02,$03,$04,$05,$06,$07,$08
-  !by $09,$0a,$0b,$0c,$0d,$0e,$0f,$01
+  !by VIC2Colour_Black,VIC2Colour_Black,VIC2Colour_Black,VIC2Colour_Black,VIC2Colour_White,VIC2Colour_White,VIC2Colour_Yellow,VIC2Colour_Red
+  !by VIC2Colour_Black,VIC2Colour_Black,$01,$01,$01,$01,$01,$01
+  !by $01,$01,$01,$01,$01,$01,$01,$01
+  !by $01,$01,$01,$01,$01,$01,$01,$01
+  !by $01,$01,$01,$01,$01,$01,$01,$01
+  !by $01,$01,$01,$01,$01,$01,$01,$01
 
 Multiplex_SpriteFrame
   !by $f8,$f9,$fa,$fb,$f8,$f9,$fa,$fb
