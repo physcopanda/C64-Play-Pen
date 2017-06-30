@@ -72,7 +72,7 @@ yoffset = Multiplex_endVars+$09
 !source "../stdlib/BASICEntry900.a"
 
 ; Some sprite data high up in memory
-*=$3e00
+*=$3000
 !source "penguin_adventure_sprites.a"
 
 *=BASICEntry
@@ -344,7 +344,7 @@ countDown !by 0
 countDown2  !by 0
 countDown3  !by 0
 
-!macro MSetSprite .sprite , .xpos , .ypos {
+!macro MSetSprite .sprite , .xpos , .ypos , .frame {
   lda #(.xpos & 0xff)
   sta Multiplex_XPosLo + .sprite
   !if .xpos >= 256 {
@@ -354,7 +354,7 @@ countDown3  !by 0
   }
   lda #.ypos
   sta Multiplex_YPos + .sprite
-  lda #$f8
+  lda #.frame
   sta Multiplex_SpriteFrame + .sprite
 }
 
@@ -365,25 +365,25 @@ move
   ldx #0
   ldy #1
 
-  +MSetSprite  0 , 136 , 50
-  +MSetSprite  1 , 160 , 50
-  +MSetSprite  2 , 136 , 111
-  +MSetSprite  3 , 160 , 161
+  +MSetSprite  0 , 136 , 50		, $c0
+  +MSetSprite  1 , 160 , 50		, $c1
+  +MSetSprite  2 , 136 , 111	, $c2
+  +MSetSprite  3 , 160 , 161	, $c3
 
-  +MSetSprite  4 , 100 , 120
-  +MSetSprite  5 , 105 , 121
-  +MSetSprite  6 , 210 , 122
-  +MSetSprite  7 , 215 , 123
+  +MSetSprite  4 , 100 , 120	, $c4
+  +MSetSprite  5 , 105 , 121	, $c5
+  +MSetSprite  6 , 210 , 122	, $c6
+  +MSetSprite  7 , 215 , 123	, $c7
 
-  +MSetSprite  8 , 136 , 71
-  +MSetSprite  9 , 160 , 71
-  +MSetSprite 10 , 60 , 182
-  +MSetSprite 11 , 65 , 183
+  +MSetSprite  8 , 136 , 71		, $c8
+  +MSetSprite  9 , 160 , 71		, $c9
+  +MSetSprite 10 , 60 , 182		, $ca
+  +MSetSprite 11 , 65 , 183		, $cb
 
-  +MSetSprite 12 , 255 , 230
-  +MSetSprite 13 , 260 , 231
-  +MSetSprite 14 , 310 , 232
-  +MSetSprite 15 , 315 , 233
+  +MSetSprite 12 , 255 , 230	, $cc
+  +MSetSprite 13 , 260 , 231	, $cd
+  +MSetSprite 14 , 310 , 232	, $ce
+  +MSetSprite 15 , 315 , 233	, $cf
 
 !if 1 {
   lda counterx1
