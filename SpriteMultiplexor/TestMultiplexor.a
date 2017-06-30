@@ -94,7 +94,9 @@ Start
   ; background colour
   lda #VIC2Colour_Cyan
   sta VIC2ScreenColour
-
+  ; clear screen
+  +ClearScreenAt_AX SCREENRAM, " "
+  
   lda #<Multiplex_maininter
   sta KERNALIRQServiceRoutineLo
   lda #>Multiplex_maininter
@@ -229,6 +231,7 @@ NMIRet
 ; This function is defined before including "SpriteMultiplexor.a" which then causes the last IRQ to call this
 !zn {
 MultiplexExt_LastIRQ
+  
 !if Multiplex_items <= 24 {
   lda #255
   sta VIC2Raster
@@ -303,7 +306,7 @@ MultiplexExt_LastIRQ2
 }
   ; Because we are exiting the current screen of sprites to display we can move the sprites and sort them.
   jsr move
-
+  
   ldx countDown3
   beq .over
   ldy Multiplex_MaxSpr
@@ -366,13 +369,13 @@ move
   ldy #1
 
   +MSetSprite  0 , 136 , 50
-  +MSetSprite  1 , 160 , 50
+  +MSetSprite  1 , 136 , 50
   +MSetSprite  2 , 136 , 111
-  +MSetSprite  3 , 160 , 161
+  +MSetSprite  3 , 136 , 161
 
-  +MSetSprite  4 , 100 , 120
-  +MSetSprite  5 , 105 , 121
-  +MSetSprite  6 , 210 , 122
+  +MSetSprite  4 , 136 , 120
+  +MSetSprite  5 , 136 , 121
+  +MSetSprite  6 , 136 , 122
   +MSetSprite  7 , 215 , 123
 
   +MSetSprite  8 , 136 , 71
