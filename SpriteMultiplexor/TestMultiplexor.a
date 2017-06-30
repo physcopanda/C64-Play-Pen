@@ -360,7 +360,7 @@ countDown3  !by 0
 
 !zn {
 move  
-!ifdef Multiplex_MaintainPriority {
+;!ifdef Multiplex_MaintainPriority {
 ;!if 1 {
   ldx #0
   ldy #1
@@ -399,56 +399,7 @@ move
 ; sta Multiplex_YPos + 15
 }
 .static
-} else {
-  ; Update the first "Multiplex_MaxSpr" sprites
-  ldy Multiplex_MaxSpr
-  dey
-  bmi .exit
 
-.1  lda counterx2
-  clc
-  adc xdif
-  sta counterx2
-  clc
-  adc counterx1
-  tax
-  lda sinx,x
-  sta Multiplex_XPosLo,y
-  lda sinxhi,x
-  sta Multiplex_XPosHi,y
-
-  lda countery2
-  clc
-  adc ydif
-  sta countery2
-  clc
-  adc countery1
-  tax
-  lda siny,x
-  sta Multiplex_YPos,y
-
-  dey
-  bpl .1
-
-  lda #90
-  sta Multiplex_YPos + 0
-  sta Multiplex_YPos + 1
-  lda #109
-  sta Multiplex_YPos + 2
-  sta Multiplex_YPos + 3
-  lda #128
-  sta Multiplex_YPos + 4
-  sta Multiplex_YPos + 5
-  lda #147
-  sta Multiplex_YPos + 6
-  sta Multiplex_YPos + 7
-  lda #166
-  sta Multiplex_YPos + 8
-  sta Multiplex_YPos + 9
-  lda #185
-  sta Multiplex_YPos + 10
-  sta Multiplex_YPos + 11
-}
 
 .exit
 
