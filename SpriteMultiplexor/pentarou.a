@@ -1,0 +1,41 @@
+; Pentarou variables
+; known states - must all be defined in state_machine in the jump table
+;state_pentarou_wave
+;state_pentarou_dead
+;state_pentarou_walk
+;state_pentarou_jump
+;state_pentarou_falling
+
+pentarou_x
+  !by 0
+pentarou_Y
+  !by 0
+
+pentarou_wave
+  ldx #0
+  ldy #1
+  
+  +MSetSprite  0, 136, 50, $de
+  +MSetSprite  1, 160, 50, $df
+  +MSetSprite  2, 136, 71, $e3
+  +MSetSprite  3, 160, 71, $e4
+
+  +MSetSprite  4, 148, 50, $ee
+  +MSetSprite  5, 148, 71, $ef
+  +MSetSprite  6, 148, 50, $f6
+  +MSetSprite  7, 148, 50, $f7
+  
+  rts
+  
+pentarou_dead
+  rts
+  
+pentarou_walk
+  rts
+  
+pentarou_jump
+  rts
+  
+pentarou_falling
+  rts
+  

@@ -1,0 +1,113 @@
+; state machine
+; entities with states - there can be 8 max
+; load the entity into x before init or running states
+state_entity_game=0
+state_entity_pentarou=1
+state_entity_boss=2
+
+; list of all states in table order
+state_pentarou_wave=0
+state_pentarou_dead=1
+state_pentarou_walk=2
+state_pentarou_jump=3
+state_pentarou_falling=4
+
+; jmp table
+state_jump_table_L
+  !by >pentarou_wave
+  !by >pentarou_dead
+  !by >pentarou_walk
+  !by >pentarou_jump
+  !by >pentarou_falling
+state_jump_table_H
+  !by <pentarou_wave
+  !by >pentarou_dead
+  !by >pentarou_walk
+  !by >pentarou_jump
+  !by >pentarou_falling
+  
+state_continue=0
+state_next=1
+
+
+next_state
+  !by 0,0,0,0,0,0,0,0
+current_state
+  !by 0,0,0,0,0,0,0,0
+state_return_code
+  !by 0,0,0,0,0,0,0,0
+  
+; state_time H,M,L
+state_time_L
+  !by 0,0,0,0,0,0,0,0
+state_time_M
+  !by 0,0,0,0,0,0,0,0
+state_time_H
+  !by 0,0,0,0,0,0,0,0
+  
+; init state in accumulator for entity in x
+init_state
+  ; store state
+  sta next_state,x
+  ; reset timer
+  lda #0
+  sta state_time_L
+  sta state_time_M
+  sta state_time_H
+  lda #state_continue
+  sta state_return_code,x
+  rts
+  
+; run state based on current return code for entity in x
+state_machine
+  ; whats the current state action
+  lda state_return_code,x
+  cmp state_continue
+  bne .skip_1
+  
+  ; return back to timer inc
+  lda >.skip_to_timer
+  pha
+  lda <.skip_to_timer
+  pha
+  
+  ; jsr to current_state subroutine using jump table
+  lda current_state,x
+  tay
+  lda state_jump_table_H,y
+  pha
+  lda state_jump_table_L,y
+  pha
+  rts
+  
+  jmp .skip_to_timer
+.skip_1
+  cmp state_next
+  bne .skip_2
+  
+  ; return back to timer inc
+  lda >.skip_to_timer
+  pha
+  lda <.skip_to_timer
+  pha
+  
+  ; jsr to next_state subroutine using jump table
+  lda next_state,x
+  tay
+  lda state_jump_table_H,y
+  pha
+  lda state_jump_table_L,y
+  pha
+  rts
+  
+.skip_2
+.skip_to_timer
+  ; inc timer
+  inc state_time_L,x
+  bne skip
+  inc state_time_M,x
+  bne skip
+  inc state_time_H,x
+skip
+  rts
+  

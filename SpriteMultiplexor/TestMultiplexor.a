@@ -94,7 +94,12 @@ Start
   ; background colour
   lda #VIC2Colour_Cyan
   sta VIC2ScreenColour
-
+  
+  ; init Pentarou
+  ldx #state_entity_pentarou
+  lda #state_pentarou_wave
+  jsr init_state
+  
   lda #<Multiplex_maininter
   sta KERNALIRQServiceRoutineLo
   lda #>Multiplex_maininter
@@ -359,127 +364,10 @@ countDown3  !by 0
 }
 
 !zn {
-!align 255, 0
-; state machine
-state_continue=0
-state_next=2
-next_state
-  !wo 0,0,0,0,0,0,0,0
-current_state
-  !wo 0,0,0,0,0,0,0,0
-state_time
-  !by 0,0,0,0,0,0,0,0
-state_return_code
-  !by 0,0,0,0,0,0,0,0
-  
-; load the entity into x before init or running states
-state_entity_game=0
-state_entity_pentarou=1
+move
+  ldx #state_entity_pentarou
+  jsr state_machine
 
-; init state in accumulator for entity in x
-init_state
-  ; store state
-  sta next_state,x
-  ; reset timer
-  lda #0
-  sta state_time
-  sta state_time+1
-  sta state_time+2
-  lda state_next
-  sta state_return_code,x
-  rts
-  
-; run state based on current return code for entity in x
-state_machine
-  ; whats the current state action
-  lda state_return_code,x
-  cmp state_continue
-  bne .skip_1
-  txa
-  asl
-  tax
-  lda current_state,x
-  sta .callSubroutineInPtr+1
-  lda current_state+1,x
-  sta .callSubroutineInPtr+2
-  jsr .callSubroutineInPtr
-  jmp .skip_to_timer
-.skip_1
-  cmp state_next
-  bne .skip_2
-  txa
-  asl
-  tax
-  lda next_state,x
-  sta current_state,x
-  sta .callSubroutineInPtr+1
-  lda next_state+1,x
-  sta current_state+1,x
-  sta .callSubroutineInPtr+2
-  jsr .callSubroutineInPtr
-.skip_2
-.skip_to_timer
-  ; inc timer
-  inc state_time+2
-  bne skip
-  inc state_time+1
-  bne skip
-  inc state_time
-skip
-  rts
-  
-.callSubroutineInPtr
-  jmp ($0000)
-  
-pentarou_state_first
-pentarou_wave
-  ldx #0
-  ldy #1
-  
-  +MSetSprite  0, 136, 50, $de
-  +MSetSprite  1, 160, 50, $df
-  +MSetSprite  2, 136, 71, $e3
-  +MSetSprite  3, 160, 71, $e4
-
-  +MSetSprite  4, 148, 50, $ee
-  +MSetSprite  5, 148, 71, $ef
-  +MSetSprite  6, 148, 50, $f6
-  +MSetSprite  7, 148, 50, $f7
-  
-  rts
-
-  
-move  
-;!ifdef Multiplex_MaintainPriority {
-;!if 1 {
-  jsr pentarou_state_first
-  
-  ldx #0
-  ldy #1
-  
-  +MSetSprite  8 , 220, 100, $c0
-  +MSetSprite  9 , 220, 100, $c0
-  +MSetSprite 10 , 60 , 182   , $ca
-  +MSetSprite 11 , 65 , 183   , $cb
-
-  +MSetSprite 12 , 255 , 230  , $cc
-  +MSetSprite 13 , 260 , 231  , $cd
-  +MSetSprite 14 , 310 , 232  , $ce
-  +MSetSprite 15 , 315 , 233  , $cf
-
-!if 1 {
-  lda counterx1
-  sta Multiplex_YPos + 12
-  clc
-  adc #5
-  sta Multiplex_YPos + 13
-  lda counterx1
-  eor #$ff
-  adc #1
-; sta Multiplex_YPos + 14
-  adc #1
-; sta Multiplex_YPos + 15
-}
 .static
 
 
@@ -615,22 +503,9 @@ siny
  !by $6b,$6d,$6f,$71,$73,$75,$77,$7a,$7c,$7e,$80,$82,$84,$87,$89,$8b
  !by $ff
 
-; Pentarou variables
-pentarou_state_dead=0
-pentarou_state_walk=1
-pentarou_state_jump=2
-pentarou_state_wave=3
-pentarou_state_falling=4
-pentarou_x
-  !by 0
-pentarou_Y
-  !by 0
-pentarou_state
-  !by pentarou_state_wave
-pentarou_state_time
-  !by 0
-
-  
+!source "state_machine.a"
+!source "pentarou.a"
+ 
 !ifdef EnableMusic {
 
 track1 =$4600 ; The start of the music data in memory. Must be aligned on $100 bytes.
