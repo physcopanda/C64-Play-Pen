@@ -14,17 +14,17 @@ state_pentarou_falling=4
 
 ; jmp table
 state_jump_table_L
-  !by >pentarou_wave
-  !by >pentarou_dead
-  !by >pentarou_walk
-  !by >pentarou_jump
-  !by >pentarou_falling
+  !by <pentarou_wave-1
+  !by >pentarou_dead-1
+  !by >pentarou_walk-1
+  !by >pentarou_jump-1
+  !by >pentarou_falling-1
 state_jump_table_H
-  !by <pentarou_wave
-  !by >pentarou_dead
-  !by >pentarou_walk
-  !by >pentarou_jump
-  !by >pentarou_falling
+  !by >pentarou_wave-1
+  !by >pentarou_dead-1
+  !by >pentarou_walk-1
+  !by >pentarou_jump-1
+  !by >pentarou_falling-1
   
 state_continue=0
 state_next=1
@@ -51,9 +51,9 @@ init_state
   sta next_state,x
   ; reset timer
   lda #0
-  sta state_time_L
-  sta state_time_M
-  sta state_time_H
+  sta state_time_L,x
+  sta state_time_M,x
+  sta state_time_H,x
   lda #state_continue
   sta state_return_code,x
   rts
@@ -62,52 +62,39 @@ init_state
 state_machine
   ; whats the current state action
   lda state_return_code,x
-  cmp state_continue
+  cmp #state_continue
   bne .skip_1
-  
-  ; return back to timer inc
-  lda >.skip_to_timer
-  pha
-  lda <.skip_to_timer
-  pha
   
   ; jsr to current_state subroutine using jump table
   lda current_state,x
-  tay
-  lda state_jump_table_H,y
-  pha
-  lda state_jump_table_L,y
-  pha
-  rts
+  jsr state_jump
   
   jmp .skip_to_timer
 .skip_1
-  cmp state_next
+  cmp #state_next
   bne .skip_2
-  
-  ; return back to timer inc
-  lda >.skip_to_timer
-  pha
-  lda <.skip_to_timer
-  pha
   
   ; jsr to next_state subroutine using jump table
   lda next_state,x
-  tay
-  lda state_jump_table_H,y
-  pha
-  lda state_jump_table_L,y
-  pha
-  rts
+  jsr state_jump
+  
   
 .skip_2
 .skip_to_timer
   ; inc timer
   inc state_time_L,x
-  bne skip
+  bne .skip
   inc state_time_M,x
-  bne skip
+  bne .skip
   inc state_time_H,x
-skip
+.skip
+  rts
+  
+state_jump
+  tay
+  lda state_jump_table_H,y
+  pha
+  lda state_jump_table_L,y
+  pha
   rts
   
