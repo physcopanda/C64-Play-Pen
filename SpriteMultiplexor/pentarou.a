@@ -12,9 +12,30 @@ pentarou_Y
   !by 0
 
 pentarou_wave
+  ; save x
+  txa
+  pha
   ldx #0
   ldy #1
   
+  ; which frame to display
+  lda state_time_L+state_entity_pentarou
+  lsr
+  lsr
+  lsr
+  lsr
+  lsr
+  bcs +
+  jsr +++
+  jmp ++
++
+  jsr ++++
+++
+  ; restore x
+  pla
+  tax
+  rts
++++
   +MSetSprite  0, 136, 50, $de
   +MSetSprite  1, 160, 50, $df
   +MSetSprite  2, 136, 71, $e3
@@ -22,20 +43,68 @@ pentarou_wave
 
   +MSetSprite  4, 148, 50, $ee
   +MSetSprite  5, 148, 71, $ef
-  +MSetSprite  6, 148, 50, $f6
-  +MSetSprite  7, 148, 50, $f7
-  
+  +MSetSprite  6, 148, 50, $f5
+  +MSetSprite  7, 148, 50, $f6
   rts
-  
+++++
+
+  +MSetSprite  0, 136, 50, $e0
+  +MSetSprite  1, 160, 50, $df
+  +MSetSprite  2, 136, 71, $e5
+  +MSetSprite  3, 160, 71, $e4
+
+  +MSetSprite  4, 148, 50, $ee
+  +MSetSprite  5, 148, 71, $f0
+  +MSetSprite  6, 148, 50, $f5
+  +MSetSprite  7, 148, 50, $f6
+  rts
+
 pentarou_dead
   rts
-  
+
+ 
 pentarou_walk
+  ; save x
+  txa
+  pha
+  ldx #0
+  ldy #1
+  
+  ; which frame to display
+  lda state_time_L+state_entity_pentarou
+  lsr
+  lsr
+  lsr
+  lsr
+  lsr
+  bcs +
+  jsr +++
+  jmp ++
++
+  jsr ++++
+++
+  ; restore x
+  pla
+  tax
+  rts
++++
+  +MSetSprite  0, 136, 50, $c0
+  +MSetSprite  1, 160, 50, $c1
+  +MSetSprite  2, 136, 71, $c8
+  +MSetSprite  3, 160, 71, $c9
+  +MSetSprite  4, 136, 50, $e8
+  rts
+++++
+  +MSetSprite  0, 136, 50, $c0
+  +MSetSprite  1, 160, 50, $c1
+  +MSetSprite  2, 136, 71, $c8
+  +MSetSprite  3, 160, 71, $c9
+  +MSetSprite  4, 136, 50, $e8
   rts
   
 pentarou_jump
   rts
-  
+
 pentarou_falling
   rts
-  
+ 

@@ -97,7 +97,7 @@ Start
   
   ; init Pentarou
   ldx #state_entity_pentarou
-  lda #state_pentarou_wave
+  lda #state_pentarou_walk
   jsr init_state
   
   lda #<Multiplex_maininter
