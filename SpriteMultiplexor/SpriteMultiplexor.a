@@ -853,12 +853,7 @@ Multiplex_SetDiscardPosition
 ; These default Y values show the minimal amount of sprite packing, with 1 y pos increment per sprite, that is available.
 ; Note with Multiplexor_DebugBorder this shows eight sprites updated every IRQ band
 Multiplex_YPos
-  !by $94,$94,$f9,$2f,$a9,$37,$38,$39
-  !by $a9,$a9,$53,$54,$55,$56,$57,$58
-  !by $70,$71,$72,$73,$74,$75,$76,$77
-  !by $8f,$90,$91,$92,$93,$94,$95,$96
-  !by $ae,$af,$b0,$b1,$b2,$b3,$b4,$b5
-  !by $cd,$ce,$cf,$d0,$d1,$d2,$d3,$d4
+  !fi 49,$ff
 
 
 Multiplex_XPosLo
@@ -878,7 +873,7 @@ Multiplex_XPosHi
   !by $00,$00,$00,$00,$00,$00,$00,$00
 
 Multiplex_Colour
-  !fi 4, VIC2Colour_Black
+  !fi 4, VIC2Colour_Black ; DarkGrey
   !fi 2, VIC2Colour_White
   !fi 3, VIC2Colour_Yellow
   !fi 1, VIC2Colour_Red

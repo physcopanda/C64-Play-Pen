@@ -114,16 +114,6 @@ Start
   lda #>NMIRet
   sta KERNALNMIServiceRoutineHi
 
-  ; Some frames worth of static 48 sprites
-!ifdef Multiplex_MaintainPriority { } else {
-  lda #0
-  sta countDown
-  lda #0
-  sta countDown2
-  lda #100
-  sta countDown3
-}
-
   ; Clear zero page to something we know so that we can display it later on to check none of the variables are out of range.
   ldx #$02
   lda #$80
