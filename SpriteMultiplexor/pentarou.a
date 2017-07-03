@@ -6,6 +6,8 @@
 ;state_pentarou_jump
 ;state_pentarou_falling
 
+pentarou_locky = 117
+
 pentarou_x
   !by 0
 pentarou_Y
@@ -18,57 +20,19 @@ pentarou_wave
   ldx #0
   ldy #1
   
-  ; which frame to display
-  lda state_time_L+state_entity_pentarou
-  lsr
-  lsr
-  lsr
-  lsr
-  lsr
-  bcs +
-  jsr +++
-  jmp ++
-+
-  jsr ++++
-++
-  ; restore x
-  pla
-  tax
-  rts
-+++
-  +MSetSprite  0, 136, 50, $de
-  +MSetSprite  1, 160, 50, $df
-  +MSetSprite  2, 136, 71, $e3
-  +MSetSprite  3, 160, 71, $e4
-
-  +MSetSprite  4, 148, 50, $ee
-  +MSetSprite  5, 148, 71, $ef
-  +MSetSprite  6, 148, 50, $f5
-  +MSetSprite  7, 148, 50, $f6
-  rts
-++++
-
-  +MSetSprite  0, 136, 50, $e0
-  +MSetSprite  1, 160, 50, $df
-  +MSetSprite  2, 136, 71, $e5
-  +MSetSprite  3, 160, 71, $e4
-
-  +MSetSprite  4, 148, 50, $ee
-  +MSetSprite  5, 148, 71, $f0
-  +MSetSprite  6, 148, 50, $f5
-  +MSetSprite  7, 148, 50, $f6
-  rts
-
-pentarou_dead
-  rts
-
- 
-pentarou_walk
-  ; save x
-  txa
-  pha
-  ldx #0
-  ldy #1
+  ; hide unnecessary virtual sprites
+  lda #$ff
+  sta Multiplex_YPos + 7
+  sta Multiplex_YPos + 8
+  sta Multiplex_YPos + 10
+  
+  ; set shadow and common parts
+  +MSetSprite 1, 160, 120, $df ;black tr
+  +MSetSprite 3, 160, 141, $e4 ;black br
+  +MSetSprite 4, 148, 120, $ee ;white body t
+  +MSetSprite 6, 148, 120, $f5 ;yellow beak
+  +MSetSprite 9, 148, 120, $f6 ;red beak
+  +MSetSprite 10, 148, 134, $ff ;blue shadow
   
   ; which frame to display
   lda state_time_L+state_entity_pentarou
@@ -86,20 +50,110 @@ pentarou_walk
   ; restore x
   pla
   tax
+  
+  ; look for next state - after 3 seconds switch to walk
+  lda state_time_L+state_entity_pentarou
+  !if PAL = 1 {
+      cmp #150
+  } else {
+      cmp #180
+  }
+  bcc +++++
+  ; change state now
+  lda #state_pentarou_walk
+  jsr new_state
++++++
   rts
+  
 +++
-  +MSetSprite  0, 136, 50, $c0
-  +MSetSprite  1, 160, 50, $c1
-  +MSetSprite  2, 136, 71, $c8
-  +MSetSprite  3, 160, 71, $c9
-  +MSetSprite  4, 136, 50, $e8
+  +MSetSprite 0, 136, 120, $de ; black tl
+  +MSetSprite 2, 136, 141, $e3 ; black bl
+  ;+MSetSprite 5, 148, 141, $ef ; white bottom
   rts
+  
 ++++
-  +MSetSprite  0, 136, 50, $c0
-  +MSetSprite  1, 160, 50, $c1
-  +MSetSprite  2, 136, 71, $c8
-  +MSetSprite  3, 160, 71, $c9
-  +MSetSprite  4, 136, 50, $e8
+  +MSetSprite 0, 136, 120, $e0 ; black tl
+  +MSetSprite 2, 136, 141, $e5 ; black bl
+  ;+MSetSprite 5, 148, 141, $f0 ; white bottom
+  rts
+
+pentarou_dead
+  rts
+
+ 
+pentarou_walk
+  ; save x
+  txa
+  pha
+  ldx #0
+  ldy #1
+  ; hide unnecessary virtual sprites
+  lda #$ff
+  sta Multiplex_YPos + 5
+  sta Multiplex_YPos + 6
+  sta Multiplex_YPos + 7
+  sta Multiplex_YPos + 8
+  sta Multiplex_YPos + 9
+  
+  ; set shadow
+  +MSetSprite 10, 148, 134, $ff ;blue shadow
+  ; which frame to display
+  lda state_time_L+state_entity_pentarou
+  lsr
+  lsr
+  lsr
+  lsr
+  bcc .walk_mid
+  lsr
+  bcs .walk_right
+  jsr ._walk_left
+  jmp .walk_over
+.walk_mid
+  jsr ._walk_mid
+  jmp .walk_over
+.walk_right
+  jsr ._walk_right
+  jmp .walk_over
+.walk_over
+  ; restore x
+  pla
+  tax
+  ; look for next state - after 3 seconds switch to wave
+  lda state_time_L+state_entity_pentarou
+  !if PAL = 1 {
+      cmp #150
+  } else {
+      cmp #180
+  }
+  bcc +++++
+  ; change state now
+  lda #state_pentarou_wave
+  jsr new_state
++++++
+  rts
+
+._walk_mid
+  +MSetSprite 0, 136, 118, $c0 ;black tl
+  +MSetSprite 1, 160, 118, $c1 ;black tr
+  +MSetSprite 2, 136, 139, $c8 ;black bl
+  +MSetSprite 3, 160, 139, $c9 ;black br
+  +MSetSprite 4, 136, 120, $e8 ;white
+  rts
+._walk_left
+  +MSetSprite 0, 136, 118, $d2 ;black tl
+  +MSetSprite 1, 160, 118, $c5 ;black tr
+  +MSetSprite 2, 136, 139, $da ;black bl
+  +MSetSprite 3, 160, 139, $e6 ;black br
+  +MSetSprite 4, 136, 118, $ea ;white
+  +MSetSprite 5, 167, 151, $ec ;white
+  rts
+._walk_right
+  +MSetSprite 0, 136, 118, $c6 ;black tl
+  +MSetSprite 1, 160, 118, $d5 ;black tr
+  +MSetSprite 2, 136, 139, $e7 ;black bl
+  +MSetSprite 3, 160, 139, $dd ;black br
+  +MSetSprite 4, 136, 118, $eb ;white
+  +MSetSprite 5, 152, 151, $ec ;white
   rts
   
 pentarou_jump

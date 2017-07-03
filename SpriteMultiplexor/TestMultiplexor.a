@@ -7,8 +7,11 @@
 !cpu 6510
 !ct pet
 
+; build for PAL or NTSC
+PAL=1
+
 ; Uncomment this to allow colision logging to be turned on and update into the screen area
-;Multiplex_LogCollisions = 1
+Multiplex_LogCollisions = 1
 Multiplex_CollisionCounter    = SCREENRAM + (16*40)
 Multiplex_CollisionHistory    = SCREENRAM + (18*40)
 Multiplex_CollisionIndexes    = SCREENRAM + (19*40)
@@ -73,7 +76,7 @@ yoffset = Multiplex_endVars+$09
 
 ; Some sprite data high up in memory
 *=$3000
-!source "penguin_adventure_sprites.a"
+!bin "../Penguin Adventure/resources/sprites.bin"
 
 *=BASICEntry
 jmp Start
@@ -92,7 +95,8 @@ Start
   sta VIC2SpriteMulticolour
   
   ; background colour
-  lda #VIC2Colour_Cyan
+  ;lda #VIC2Colour_Cyan
+  lda #VIC2Colour_White
   sta VIC2ScreenColour
   
   ; init Pentarou
@@ -112,11 +116,11 @@ Start
 
   ; Some frames worth of static 48 sprites
 !ifdef Multiplex_MaintainPriority { } else {
-  lda #100
+  lda #0
   sta countDown
-  lda #210
+  lda #0
   sta countDown2
-  lda #210
+  lda #100
   sta countDown3
 }
 
@@ -502,10 +506,11 @@ siny
  !by $4e,$4f,$51,$53,$54,$56,$58,$5a,$5b,$5d,$5f,$61,$63,$65,$67,$69
  !by $6b,$6d,$6f,$71,$73,$75,$77,$7a,$7c,$7e,$80,$82,$84,$87,$89,$8b
  !by $ff
+ 
 
 !source "state_machine.a"
 !source "pentarou.a"
- 
+
 !ifdef EnableMusic {
 
 track1 =$4600 ; The start of the music data in memory. Must be aligned on $100 bytes.

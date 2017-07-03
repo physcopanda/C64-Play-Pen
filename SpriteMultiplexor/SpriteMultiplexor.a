@@ -878,13 +878,11 @@ Multiplex_XPosHi
   !by $00,$00,$00,$00,$00,$00,$00,$00
 
 Multiplex_Colour
-  !by VIC2Colour_Black,VIC2Colour_Black,VIC2Colour_Black,VIC2Colour_Black,VIC2Colour_White,VIC2Colour_White,VIC2Colour_Yellow,VIC2Colour_Red
-  !by VIC2Colour_Black,VIC2Colour_Black,$01,$01,$01,$01,$01,$01
-  !by $01,$01,$01,$01,$01,$01,$01,$01
-  !by $01,$01,$01,$01,$01,$01,$01,$01
-  !by $01,$01,$01,$01,$01,$01,$01,$01
-  !by $01,$01,$01,$01,$01,$01,$01,$01
-
+  !fi 4, VIC2Colour_Black
+  !fi 2, VIC2Colour_White
+  !fi 3, VIC2Colour_Yellow
+  !fi 1, VIC2Colour_Red
+  !fi 1, VIC2Colour_Blue
 Multiplex_SpriteFrame
   !by $f8,$f9,$fa,$fb,$f8,$f9,$fa,$fb
   !by $f9,$fa,$fb,$f8,$f9,$fa,$fb,$f8

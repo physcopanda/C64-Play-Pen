@@ -57,6 +57,19 @@ init_state
   lda #state_continue
   sta state_return_code,x
   rts
+
+; set up next state in accumulator for entity in x
+new_state
+  ; store state
+  sta next_state,x
+  ; reset timer
+  lda #0
+  sta state_time_L,x
+  sta state_time_M,x
+  sta state_time_H,x
+  lda #state_next
+  sta state_return_code,x
+  rts
   
 ; run state based on current return code for entity in x
 state_machine
