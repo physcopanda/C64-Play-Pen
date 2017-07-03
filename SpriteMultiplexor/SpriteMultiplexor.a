@@ -158,7 +158,8 @@ Multiplex_TopRasterHeight = 8 + eMultiplex_LogCollisions + eMultiplex_MaintainPr
 
 
 !ifdef Multiplexor_DebugBorder {
-  lda #VIC2Colour_Cyan : sta VIC2BorderColour
+  ;lda #VIC2Colour_Cyan : sta VIC2BorderColour
+  lda #VIC2Colour_Black : sta VIC2BorderColour
 }
   lda Multiplex_areg
   ldx Multiplex_xreg
@@ -640,7 +641,8 @@ Multiplex_AckExitInterrupt
   +MACROAckRasterIRQ_A
 
 !ifdef Multiplexor_DebugBorder {
-  lda #VIC2Colour_Cyan : sta VIC2BorderColour
+  ;lda #VIC2Colour_Cyan : sta VIC2BorderColour
+  lda #VIC2Colour_Black : sta VIC2BorderColour
 }
 
   lda Multiplex_areg
@@ -874,10 +876,11 @@ Multiplex_XPosHi
 
 Multiplex_Colour
   !fi 4, VIC2Colour_Black ; DarkGrey
-  !fi 2, VIC2Colour_White
-  !fi 3, VIC2Colour_Yellow
+  !fi 1, VIC2Colour_Yellow
   !fi 1, VIC2Colour_Red
   !fi 1, VIC2Colour_Blue
+  !fi 41, VIC2Colour_Purple
+  
 Multiplex_SpriteFrame
   !by $f8,$f9,$fa,$fb,$f8,$f9,$fa,$fb
   !by $f9,$fa,$fb,$f8,$f9,$fa,$fb,$f8

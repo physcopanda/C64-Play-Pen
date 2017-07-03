@@ -99,9 +99,19 @@ Start
   lda #VIC2Colour_White
   sta VIC2ScreenColour
   
+  ; some sort of crabby background setup
+  +ClearScreenAt_AX SCREENRAM, " "
+  +SetMemory_AX SCREENRAM, SCREENRAM + (40*6) - 1, 160
+  +SetMemory_AX SCREENRAM + (40*6), SCREENRAM + (40*11) - 1, 160
+  +SetMemory_AX COLOURRAM, COLOURRAM + (40*4) - 1, VIC2Colour_Black
+  +SetMemory_AX COLOURRAM + (40*4), COLOURRAM + (40*6) - 1, VIC2Colour_Cyan
+  +SetMemory_AX COLOURRAM + (40*6), COLOURRAM + (40*11) - 1, VIC2Colour_Cyan
+  ; display some text
+  +DisplayColourTextMiddle_AX welcome, _welcome, SCREENRAM, VIC2Colour_LightBlue
+  
   ; init Pentarou
   ldx #state_entity_pentarou
-  lda #state_pentarou_walk
+  lda #state_pentarou_wave
   jsr init_state
   
   lda #<Multiplex_maininter
@@ -301,8 +311,12 @@ MultiplexExt_LastIRQ2
   sta VIC2BorderColour
 }
   ; Because we are exiting the current screen of sprites to display we can move the sprites and sort them.
+  
+  ldx #state_entity_pentarou
+  jsr state_machine
+  
   jsr move
-
+  
   ldx countDown3
   beq .over
   ldy Multiplex_MaxSpr
@@ -359,8 +373,7 @@ countDown3  !by 0
 
 !zn {
 move
-  ldx #state_entity_pentarou
-  jsr state_machine
+  
 
 .static
 
@@ -500,6 +513,7 @@ siny
 
 !source "state_machine.a"
 !source "pentarou.a"
+!source "strings.a"
 
 !ifdef EnableMusic {
 
