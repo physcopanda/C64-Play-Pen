@@ -311,12 +311,6 @@ MultiplexExt_LastIRQ2
   sta VIC2BorderColour
 }
   ; Because we are exiting the current screen of sprites to display we can move the sprites and sort them.
-  
-  ldx #state_entity_pentarou
-  jsr state_machine
-  
-  jsr move
- 
   ldx countDown3
   beq .over
   ldy Multiplex_MaxSpr
@@ -334,6 +328,11 @@ MultiplexExt_LastIRQ2
   bpl .fiddle
 
 .over
+  ldx #state_entity_pentarou
+  jsr state_machine
+  
+  jsr move
+ 
 !ifdef Multiplexor_DebugBorder {
   lda #VIC2Colour_Red
   sta VIC2BorderColour
