@@ -855,7 +855,7 @@ Multiplex_SetDiscardPosition
 ; These default Y values show the minimal amount of sprite packing, with 1 y pos increment per sprite, that is available.
 ; Note with Multiplexor_DebugBorder this shows eight sprites updated every IRQ band
 Multiplex_YPos
-  !fi 49,$ff
+  !fi 48,$ff
 
 
 Multiplex_XPosLo

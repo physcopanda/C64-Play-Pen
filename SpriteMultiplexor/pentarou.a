@@ -20,13 +20,13 @@ pentarou_wave
   pha
   ldx #0
   ldy #1
- 
+  
   ; set shadow and common parts
   +MSetSprite 1, pentarou_startx+12, pentarou_locky-32, $df ;black tr
   +MSetSprite 3, pentarou_startx+12, pentarou_locky-12, $e4 ;black br
-  +MSetSprite 4, pentarou_startx, pentarou_locky-32, $ec ;yellow beak
-  +MSetSprite 5, pentarou_startx, pentarou_locky-32, $ed ;red beak
-  +MSetSprite 6, pentarou_startx, pentarou_locky-19, $ef ;blue shadow
+  +MSetSprite 4, pentarou_startx, pentarou_locky-32, $eb ;yellow beak
+  +MSetSprite 5, pentarou_startx, pentarou_locky-32, $ec ;red beak
+  +MSetSprite 6, pentarou_startx, pentarou_locky-17, $ed ;blue shadow
   
   ; which frame to display
   lda state_time_L+state_entity_pentarou
@@ -35,11 +35,10 @@ pentarou_wave
   lsr
   lsr
   lsr
-  bcs .wave2
-  
+  bcs +
   jsr ._wave1
   jmp .wave_over
-.wave2
++
   jsr ._wave2
 .wave_over
   ; restore x
@@ -86,7 +85,7 @@ pentarou_walk
   sta Multiplex_YPos + 4
   sta Multiplex_YPos + 5
   ; set shadow and common parts
-  +MSetSprite 6, pentarou_startx, pentarou_locky-19, $ef ;blue shadow
+  +MSetSprite 6, pentarou_startx, pentarou_locky-17, $ed ;blue shadow
   
   ; which frame to display
   lda state_time_L+state_entity_pentarou
@@ -94,18 +93,16 @@ pentarou_walk
   lsr
   lsr
   lsr
-  bcs .walk_mid
+  bcs +
   lsr
-  bcs .walk_right
-  
+  bcs ++
   jsr ._walk_left
   jmp .walk_over
-.walk_mid
++
   jsr ._walk_mid
   jmp .walk_over
-.walk_right
+++
   jsr ._walk_right
-  jmp .walk_over
 .walk_over
   ; restore x
   pla

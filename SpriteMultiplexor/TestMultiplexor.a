@@ -51,7 +51,7 @@ Multiplexor_DebugBorder = 1
 ;EnableMusic = 1
 
 ; Uncomment this to allow the sprite sort to use a bit more time but save using an extra exit interrupt
-Multiplex_EnableEarlyOut = 1
+;Multiplex_EnableEarlyOut = 1
 
 ; Uncomment this to test the bunching check code
 ;Multiplex_BunchingCheck = 1
@@ -316,7 +316,7 @@ MultiplexExt_LastIRQ2
   jsr state_machine
   
   jsr move
-  
+ 
   ldx countDown3
   beq .over
   ldy Multiplex_MaxSpr
@@ -343,6 +343,7 @@ MultiplexExt_LastIRQ2
   ; This runs the sort using the previous results of the sort as a starting point to work from.
   ; It's called the "Ocean method" since it was commonly used in Ocean games.
   jsr Multiplex_Sort
+ 
 !ifdef Multiplexor_DebugBorder {
   lda #VIC2Colour_Black
   sta VIC2BorderColour
