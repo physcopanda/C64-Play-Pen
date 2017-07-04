@@ -342,7 +342,17 @@ MultiplexExt_LastIRQ2
   ; This runs the sort using the previous results of the sort as a starting point to work from.
   ; It's called the "Ocean method" since it was commonly used in Ocean games.
   jsr Multiplex_Sort
- 
+
+  	lda #255
+	sta VIC2Sprite0Y
+	sta VIC2Sprite1Y
+	sta VIC2Sprite2Y
+	sta VIC2Sprite3Y
+	sta VIC2Sprite4Y
+	sta VIC2Sprite5Y
+	sta VIC2Sprite6Y
+	sta VIC2Sprite7Y
+  
 !ifdef Multiplexor_DebugBorder {
   lda #VIC2Colour_Black
   sta VIC2BorderColour
