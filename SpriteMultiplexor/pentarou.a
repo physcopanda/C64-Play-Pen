@@ -22,11 +22,11 @@ pentarou_wave
   ldy #1
   
   ; set shadow and common parts
-  +MSetSprite 1, pentarou_startx+12, pentarou_locky-32, $df ;black tr
-  +MSetSprite 3, pentarou_startx+12, pentarou_locky-12, $e4 ;black br
-  +MSetSprite 4, pentarou_startx, pentarou_locky-32, $eb ;yellow beak
-  +MSetSprite 5, pentarou_startx, pentarou_locky-32, $ec ;red beak
-  +MSetSprite 6, pentarou_startx, pentarou_locky-17, $ed ;blue shadow
+  +MSetSprite 1, pentarou_startx+12, pentarou_locky-32, sprites_ptr+31 ;black tr
+  +MSetSprite 3, pentarou_startx+12, pentarou_locky-12, sprites_ptr+36 ;black br
+  +MSetSprite 4, pentarou_startx, pentarou_locky-32, sprites_ptr+43 ;yellow beak
+  +MSetSprite 5, pentarou_startx, pentarou_locky-32, sprites_ptr+44 ;red beak
+  +MSetSprite 6, pentarou_startx, pentarou_locky-17,  sprites_ptr+45;blue shadow
   
   ; which frame to display
   lda state_time_L+state_entity_pentarou
@@ -60,13 +60,13 @@ pentarou_wave
   rts
   
 ._wave1
-  +MSetSprite 0, pentarou_startx-12, pentarou_locky-32, $de ; black tl
-  +MSetSprite 2, pentarou_startx-12, pentarou_locky-12, $e3 ; black bl
+  +MSetSprite 0, pentarou_startx-12, pentarou_locky-32, sprites_ptr+30 ; black tl
+  +MSetSprite 2, pentarou_startx-12, pentarou_locky-12, sprites_ptr+35 ; black bl
   rts
   
 ._wave2
-  +MSetSprite 0, pentarou_startx-12, pentarou_locky-32, $e0 ; black tl
-  +MSetSprite 2, pentarou_startx-12, pentarou_locky-12, $e5 ; black bl
+  +MSetSprite 0, pentarou_startx-12, pentarou_locky-32, sprites_ptr+32 ; black tl
+  +MSetSprite 2, pentarou_startx-12, pentarou_locky-12, sprites_ptr+37 ; black bl
   rts
 
 pentarou_dead
@@ -80,12 +80,16 @@ pentarou_walk
   ldx #0
   ldy #1
   
+  ;hack in some ground sprites
+  +MSetSprite 7, 44+43, 89+83, sprites_ptr+83
+  +MSetSprite 8, 61+196, 89+83, sprites_ptr+84
+  
   ; hide unnecessary virtual sprites
   lda #$ff
   sta Multiplex_YPos + 4
   sta Multiplex_YPos + 5
   ; set shadow and common parts
-  +MSetSprite 6, pentarou_startx, pentarou_locky-17, $ed ;blue shadow
+  +MSetSprite 6, pentarou_startx, pentarou_locky-17, sprites_ptr+45 ;blue shadow
   
   ; which frame to display
   lda state_time_L+state_entity_pentarou
@@ -122,24 +126,24 @@ pentarou_walk
   rts
 
 ._walk_mid
-  +MSetSprite 0, pentarou_startx-12, pentarou_locky-35, $c0 ;black tl
-  +MSetSprite 1, pentarou_startx+12, pentarou_locky-35, $c1 ;black tr
-  +MSetSprite 2, pentarou_startx-12, pentarou_locky-14, $c8 ;black bl
-  +MSetSprite 3, pentarou_startx+12, pentarou_locky-14, $c9 ;black br
+  +MSetSprite 0, pentarou_startx-12, pentarou_locky-35, sprites_ptr ;black tl
+  +MSetSprite 1, pentarou_startx+12, pentarou_locky-35, sprites_ptr+1 ;black tr
+  +MSetSprite 2, pentarou_startx-12, pentarou_locky-14, sprites_ptr+8 ;black bl
+  +MSetSprite 3, pentarou_startx+12, pentarou_locky-14, sprites_ptr+9 ;black br
   rts
   
 ._walk_left
-  +MSetSprite 0, pentarou_startx-12, pentarou_locky-35, $d2 ;black tl
-  +MSetSprite 1, pentarou_startx+12, pentarou_locky-35, $c5 ;black tr
-  +MSetSprite 2, pentarou_startx-12, pentarou_locky-14, $da ;black bl
-  +MSetSprite 3, pentarou_startx+12, pentarou_locky-14, $e6 ;black br
+  +MSetSprite 0, pentarou_startx-12, pentarou_locky-35, sprites_ptr+18 ;black tl
+  +MSetSprite 1, pentarou_startx+12, pentarou_locky-35, sprites_ptr+5 ;black tr
+  +MSetSprite 2, pentarou_startx-12, pentarou_locky-14, sprites_ptr+26 ;black bl
+  +MSetSprite 3, pentarou_startx+12, pentarou_locky-14, sprites_ptr+38 ;black br
   rts
   
 ._walk_right
-  +MSetSprite 0, pentarou_startx-12, pentarou_locky-35, $c6 ;black tl
-  +MSetSprite 1, pentarou_startx+12, pentarou_locky-35, $d5 ;black tr
-  +MSetSprite 2, pentarou_startx-12, pentarou_locky-14, $e7 ;black bl
-  +MSetSprite 3, pentarou_startx+12, pentarou_locky-14, $dd ;black br
+  +MSetSprite 0, pentarou_startx-12, pentarou_locky-35, sprites_ptr+6 ;black tl
+  +MSetSprite 1, pentarou_startx+12, pentarou_locky-35, sprites_ptr+21 ;black tr
+  +MSetSprite 2, pentarou_startx-12, pentarou_locky-14, sprites_ptr+39 ;black bl
+  +MSetSprite 3, pentarou_startx+12, pentarou_locky-14, sprites_ptr+29 ;black br
   rts
   
 pentarou_jump

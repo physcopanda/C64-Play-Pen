@@ -10,15 +10,22 @@
 ; build for PAL or NTSC
 PAL=1
 
+; VIC configuration
+vic_bank=2
+chrmap_offset=4 ; offset in blocks of 2048 bytes from start of vic mem
+display_mem=3 ; offset in blocks of 1024 bytes (0-15)
+SCREENRAM_NEW=vic_bank * $4000 + display_mem * $0400
+SPRITEFRAME_NEW=SCREENRAM_NEW + SPRITEFRAMESCROFF
+
 ; Uncomment this to allow colision logging to be turned on and update into the screen area
 Multiplex_LogCollisions = 1
-Multiplex_CollisionCounter    = SCREENRAM + (16*40)
-Multiplex_CollisionHistory    = SCREENRAM + (18*40)
-Multiplex_CollisionIndexes    = SCREENRAM + (19*40)
+Multiplex_CollisionCounter    = SCREENRAM_NEW + (16*40)
+Multiplex_CollisionHistory    = SCREENRAM_NEW + (18*40)
+Multiplex_CollisionIndexes    = SCREENRAM_NEW + (19*40)
 
 ; Define what the multiplexor can use
 Multiplex_VarBase = $02
-Multiplex_spritepointer = SPRITEFRAME
+Multiplex_spritepointer = SPRITEFRAME_NEW
 Multiplex_IRQServiceRoutineLo = KERNALIRQServiceRoutineLo;
 Multiplex_IRQServiceRoutineHi = KERNALIRQServiceRoutineHi;
 Multiplex_DiscardSpritesYPos=255
@@ -72,22 +79,50 @@ yspeed  = Multiplex_endVars+$07
 xoffset = Multiplex_endVars+$08
 yoffset = Multiplex_endVars+$09
 
+
 !source "../stdlib/BASICEntry900.a"
 
 ; Some sprite data high up in memory
-*=$3000
+sprites=88
+sprites_ptr=($4000 - sprites * 64) / 64
+*=(vic_bank+1) * $4000 - sprites * 64
 !bin "../Penguin Adventure/resources/sprites.bin"
+; some chrs for scenery
+*=vic_bank * $4000 + chrmap_offset * $0800
+!bin "../Penguin Adventure/resources/antartic.bin"
 
 *=BASICEntry
 jmp Start
 
-*=$0c00
+*=$1000
 ;--------------------------------------
 !zn {
 Start 
   lda #ProcessorPortAllRAMWithIO
   jsr InitialiseMachine
-
+  
+  lda CIA2PortADDR
+  ora #3
+  sta CIA2PortADDR
+  
+  ; select block for VIC
+  lda CIA2
+  and #252
+  ora #(3-vic_bank)
+  sta CIA2
+  
+  ; set the character memory
+  lda VIC2MemorySetup
+  and #240
+  ora #chrmap_offset*2
+  sta VIC2MemorySetup
+  
+  ; set the display mem area
+  lda VIC2MemorySetup
+  and #15
+  ora #(display_mem*16)
+  sta VIC2MemorySetup
+  
   lda #0
   sta VIC2SpriteDoubleWidth
   sta VIC2SpriteDoubleHeight
@@ -95,19 +130,31 @@ Start
   sta VIC2SpriteMulticolour
   
   ; background colour
-  ;lda #VIC2Colour_Cyan
-  lda #VIC2Colour_White
+  lda #VIC2Colour_Cyan
   sta VIC2ScreenColour
   
   ; some sort of crabby background setup
-  +ClearScreenAt_AX SCREENRAM, " "
-  +SetMemory_AX SCREENRAM, SCREENRAM + (40*6) - 1, 160
-  +SetMemory_AX SCREENRAM + (40*6), SCREENRAM + (40*11) - 1, 160
-  +SetMemory_AX COLOURRAM, COLOURRAM + (40*4) - 1, VIC2Colour_Black
-  +SetMemory_AX COLOURRAM + (40*4), COLOURRAM + (40*6) - 1, VIC2Colour_Cyan
-  +SetMemory_AX COLOURRAM + (40*6), COLOURRAM + (40*11) - 1, VIC2Colour_Cyan
+  ;+ClearScreenAt_AX SCREENRAM, " "
+  ;+SetMemory_AX SCREENRAM, SCREENRAM_NEW + (40*6) - 1, 160
+  ;+SetMemory_AX SCREENRAM_NEW + (40*6), SCREENRAM_NEW + (40*11) - 1, 160
+  ;+SetMemory_AX COLOURRAM, COLOURRAM + (40*4) - 1, VIC2Colour_Black
+  ;+SetMemory_AX COLOURRAM + (40*4), COLOURRAM + (40*6) - 1, VIC2Colour_Cyan
+  ;+SetMemory_AX COLOURRAM + (40*6), COLOURRAM + (40*11) - 1, VIC2Colour_Cyan
+  
   ; display some text
-  +DisplayColourTextMiddle_AX welcome, _welcome, SCREENRAM, VIC2Colour_LightBlue
+  ;+DisplayColourTextMiddle_AX welcome, _welcome, SCREENRAM, VIC2Colour_LightBlue
+
+hudlen=160  
+  +SetMemory_AX SCREENRAM_NEW, SCREENRAM+hudlen, 11
+  +DisplayTextAt_AX screen_antarctic, screen_antarctic+255, SCREENRAM_NEW+hudlen
+  +DisplayTextAt_AX screen_antarctic+256, screen_antarctic+511, SCREENRAM_NEW+256+hudlen
+  +DisplayTextAt_AX screen_antarctic+512, screen_antarctic+767, SCREENRAM_NEW+512+hudlen
+  +DisplayTextAt_AX screen_antarctic+768, _screen_antarctic, SCREENRAM_NEW+768+hudlen
+  +SetMemory_AX COLOURRAM, COLOURRAM + (40*4) - 1, VIC2Colour_Black
+  +SetMemory_AX COLOURRAM + (40*4), COLOURRAM + (40*10) - 1, VIC2Colour_White
+  +SetMemory_AX COLOURRAM + (40*10), COLOURRAM + (40*16) - 1, VIC2Colour_White
+  +SetMemory_AX COLOURRAM + (40*16), COLOURRAM + (40*20) - 1, VIC2Colour_White
+  +SetMemory_AX COLOURRAM + (40*20), COLOURRAM + (40*25) - 1, VIC2Colour_White
   
   ; init Pentarou
   ldx #state_entity_pentarou
@@ -180,8 +227,8 @@ Start
   ldy #3
 .2
   sta SCREENRAM
-  stx SCREENRAM+1
-  sty SCREENRAM+2
+  stx SCREENRAM_NEW+1
+  sty SCREENRAM_NEW+2
   ; MPi: Inc'ing these three store variables should not alter the "ABC" printed by the bit above.
   ; In the previous version this code block would show how reg X was not being preserved by the IRQ because the middle character ("B") would update.
   ; This is because as the IRQ exits it would sometimes do an extra "ldx Multiplex_xreg" without always doing the corresponding "stx Multiplex_xreg" on entry.
@@ -343,15 +390,15 @@ MultiplexExt_LastIRQ2
   ; It's called the "Ocean method" since it was commonly used in Ocean games.
   jsr Multiplex_Sort
 
-  	lda #255
-	sta VIC2Sprite0Y
-	sta VIC2Sprite1Y
-	sta VIC2Sprite2Y
-	sta VIC2Sprite3Y
-	sta VIC2Sprite4Y
-	sta VIC2Sprite5Y
-	sta VIC2Sprite6Y
-	sta VIC2Sprite7Y
+    lda #255
+  sta VIC2Sprite0Y
+  sta VIC2Sprite1Y
+  sta VIC2Sprite2Y
+  sta VIC2Sprite3Y
+  sta VIC2Sprite4Y
+  sta VIC2Sprite5Y
+  sta VIC2Sprite6Y
+  sta VIC2Sprite7Y
   
 !ifdef Multiplexor_DebugBorder {
   lda #VIC2Colour_Black
@@ -462,7 +509,7 @@ move
   rts
 }
 
-!source "../stdlib/Initialise.a"
+!source "Initialise.a"
 
 !align 255, 0
 sinx
@@ -524,6 +571,7 @@ siny
 !source "state_machine.a"
 !source "pentarou.a"
 !source "strings.a"
+!source "screens_antarctic.a"
 
 !ifdef EnableMusic {
 

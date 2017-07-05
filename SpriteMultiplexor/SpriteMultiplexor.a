@@ -879,7 +879,7 @@ Multiplex_Colour
   !fi 1, VIC2Colour_Yellow
   !fi 1, VIC2Colour_Red
   !fi 1, VIC2Colour_Blue
-  !fi 41, VIC2Colour_Purple
+  !fi 41, VIC2Colour_Black
   
 Multiplex_SpriteFrame
   !by $f8,$f9,$fa,$fb,$f8,$f9,$fa,$fb
